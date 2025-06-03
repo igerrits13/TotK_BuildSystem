@@ -60,8 +60,6 @@ void ATotK_BuildSystemCharacter::BeginPlay()
 {
 	// Call the base class  
 	Super::BeginPlay();
-
-	Debug::Print(TEXT("Printing message"));
 }
 
 //////////////////////////////////////////////////////////////////////////
