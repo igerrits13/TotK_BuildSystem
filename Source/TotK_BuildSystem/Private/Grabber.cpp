@@ -41,10 +41,24 @@ void UGrabber::TickComponent(float DeltaTime, ELevelTick TickType, FActorCompone
 	FRotator OwnerRotation;
 	GetOwner()->GetActorEyesViewPoint(OwnerLocation, OwnerRotation);
 
-	
+	// Create a line trace between character and endpoint where character can reach
 	FVector Start = OwnerLocation;
 	FVector End = Start + GetForwardVector() * MaxGrabDistance;
 
-	DrawDebugLine(GetWorld(), Start, End, FColor::Red);
+	DrawDebugLine(GetWorld(), Start, End, FColor::Red, false);
+
+	// Check for collisions with moveable actors
+	FCollisionShape Sphere = FCollisionShape::MakeSphere(GrabRadius);
+	FHitResult HitResult;
+	bool HasHit = GetWorld()->SweepSingleByChannel(HitResult, Start, End, FQuat::Identity, ECC_GameTraceChannel1, Sphere);
+
+	if (HasHit) {
+		AActor* HitActor = HitResult.GetActor();
+		UE_LOG(LogTemp, Display, TEXT("Hit: %s"), *HitActor->GetActorNameOrLabel());
+	}
+
+	else {
+		UE_LOG(LogTemp, Display, TEXT("No hit"));
+	}
 }
 
