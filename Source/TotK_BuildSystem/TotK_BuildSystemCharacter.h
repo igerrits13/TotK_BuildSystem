@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "Logging/LogMacros.h"
+#include "Grabber.h"
 #include "TotK_BuildSystemCharacter.generated.h"
 
 class USpringArmComponent;
@@ -44,6 +45,15 @@ class ATotK_BuildSystemCharacter : public ACharacter
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	UInputAction* LookAction;
 
+	/** Look Grab Action */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+	UInputAction* GrabAction;
+
+	/** Look Release Action */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+	UInputAction* ReleaseAction;
+
+
 public:
 	ATotK_BuildSystemCharacter();
 	
@@ -55,6 +65,12 @@ protected:
 
 	/** Called for looking input */
 	void Look(const FInputActionValue& Value);
+
+	/** Called for grabbing input */
+	void Grab(const FInputActionValue& value);
+
+	/** Called for releasing input */
+	void Release(const FInputActionValue& value);
 			
 
 protected:
@@ -63,6 +79,9 @@ protected:
 	
 	// To add mapping context
 	virtual void BeginPlay();
+
+private:
+	UGrabber* GrabberComponent;
 
 public:
 	/** Returns CameraBoom subobject **/

@@ -32,6 +32,12 @@ void UGrabber::BeginPlay()
 void UGrabber::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+}
+
+// Grab item
+void UGrabber::Grab()
+{
+	Debug::Print(TEXT("Grabbing"));
 
 	// Exit if there is no valid owner
 	if (!GetOwner()) return;
@@ -60,5 +66,11 @@ void UGrabber::TickComponent(float DeltaTime, ELevelTick TickType, FActorCompone
 	else {
 		UE_LOG(LogTemp, Display, TEXT("No hit"));
 	}
+}
+
+// Release grabbed item
+void UGrabber::Release()
+{
+	Debug::Print(TEXT("Releasing"));
 }
 
