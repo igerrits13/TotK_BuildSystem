@@ -52,10 +52,6 @@ ATotK_BuildSystemCharacter::ATotK_BuildSystemCharacter()
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName); // Attach the camera to the end of the boom and let the boom adjust to match the controller orientation
 	FollowCamera->bUsePawnControlRotation = false; // Camera does not rotate relative to arm
 
-	// Initialize grabber component
-	GrabberComponent = CreateDefaultSubobject<UGrabber>(TEXT("Grabber"));
-	GrabberComponent->SetupAttachment(CameraBoom);
-
 	// Note: The skeletal mesh and anim blueprint references on the Mesh component (inherited from Character) 
 	// are set in the derived blueprint asset named ThirdPersonCharacter (to avoid direct content references in C++)
 }
@@ -64,6 +60,9 @@ void ATotK_BuildSystemCharacter::BeginPlay()
 {
 	// Call the base class  
 	Super::BeginPlay();
+
+	// Initialize grabber component once blueprint components have been created
+	GrabberComponent = FindComponentByClass<UGrabber>();
 }
 
 //////////////////////////////////////////////////////////////////////////

@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Components/SceneComponent.h"
+#include "PhysicsEngine/PhysicsHandleComponent.h"
 #include "Grabber.generated.h"
 
 
@@ -22,6 +23,18 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void Release();
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grab Settings")
+	float MaxGrabDistance = 400.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grab Settings")
+	float GrabRadius = 100.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grab Settings")
+	float MinHoldDistance = 100.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grab Settings")
+	float MaxHoldDistance = 250.f;
+
 protected:
 	// Called when the game starts
 	virtual void BeginPlay() override;
@@ -31,10 +44,12 @@ public:
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 private:
-	UPROPERTY(EditAnywhere) 
-	float MaxGrabDistance = 400.f;
 
-	UPROPERTY(EditAnywhere) 
-	float GrabRadius = 100.f;
-	
+	// Physics handle for moving objects
+	UPhysicsHandleComponent* PhysicsHandle;
+
+	// Vector for offsetting the height of held objects caused by third-person camera
+	FVector CameraOffsetVector;
+
+	bool GetGrabbableInReach(FHitResult& OutHitResult) const;
 };

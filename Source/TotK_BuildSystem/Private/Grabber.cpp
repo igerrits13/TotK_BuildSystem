@@ -23,8 +23,11 @@ void UGrabber::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// ...
-	
+	// Initialize the physics handle
+	PhysicsHandle = GetOwner()->FindComponentByClass<UPhysicsHandleComponent>();
+
+	// Vector for offsetting the height of held objects caused by third-person camera
+	CameraOffsetVector = FVector(0.f, 0.f, GetOwner()->GetSimpleCollisionHalfHeight() * 1.5);
 }
 
 
@@ -32,16 +35,53 @@ void UGrabber::BeginPlay()
 void UGrabber::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+
+	// Do nothing if there is no valid physics handle or held item
+	if (PhysicsHandle == nullptr || PhysicsHandle->GetGrabbedComponent() == nullptr) return;
+
+	// Otherwise, set the held objects current location
+	FVector TargetLocation = GetOwner()->GetActorLocation() + GetForwardVector() * MaxHoldDistance + CameraOffsetVector;
+	PhysicsHandle->SetTargetLocationAndRotation(TargetLocation, GetComponentRotation());
 }
 
 // Grab item
 void UGrabber::Grab()
 {
-	Debug::Print(TEXT("Grabbing"));
+	// Exit if there is no valid owner or physics handle
+	if (!GetOwner() || PhysicsHandle == nullptr) return;
 
-	// Exit if there is no valid owner
-	if (!GetOwner()) return;
+	// Initialize variable to store hit result from out parameter
+	FHitResult HitResult;
 
+	// If there is a valid hit, wake the physics component and grab the object
+	if (GetGrabbableInReach(HitResult)) {
+		UPrimitiveComponent* HitComponent = HitResult.GetComponent();
+		HitComponent->WakeAllRigidBodies();
+		PhysicsHandle->GrabComponentAtLocationWithRotation(
+			HitComponent,
+			NAME_None,
+			HitResult.ImpactPoint,
+			GetComponentRotation()
+		);
+	}
+}
+
+// Release grabbed item
+void UGrabber::Release()
+{
+	// Exit if there is no valid physics handle
+	if (PhysicsHandle == nullptr) return;
+
+	// Check if an object is currently held, if so wake up the rigid body and release that object
+	if (PhysicsHandle->GetGrabbedComponent() != nullptr) {
+		PhysicsHandle->GetGrabbedComponent()->WakeAllRigidBodies();
+		PhysicsHandle->ReleaseComponent();
+	}
+}
+
+// Check if there is a grabbable object and return if there is
+bool UGrabber::GetGrabbableInReach(FHitResult& OutHitResult) const
+{
 	// Setup variables to store rotation and location
 	FVector OwnerLocation;
 	FRotator OwnerRotation;
@@ -49,28 +89,9 @@ void UGrabber::Grab()
 
 	// Create a line trace between character and endpoint where character can reach
 	FVector Start = OwnerLocation;
-	FVector End = Start + GetForwardVector() * MaxGrabDistance;
-
-	DrawDebugLine(GetWorld(), Start, End, FColor::Red, false);
+	FVector End = Start + GetForwardVector() * MaxGrabDistance + CameraOffsetVector;
 
 	// Check for collisions with moveable actors
 	FCollisionShape Sphere = FCollisionShape::MakeSphere(GrabRadius);
-	FHitResult HitResult;
-	bool HasHit = GetWorld()->SweepSingleByChannel(HitResult, Start, End, FQuat::Identity, ECC_GameTraceChannel1, Sphere);
-
-	if (HasHit) {
-		AActor* HitActor = HitResult.GetActor();
-		UE_LOG(LogTemp, Display, TEXT("Hit: %s"), *HitActor->GetActorNameOrLabel());
-	}
-
-	else {
-		UE_LOG(LogTemp, Display, TEXT("No hit"));
-	}
+	return GetWorld()->SweepSingleByChannel(OutHitResult, Start, End, FQuat::Identity, ECC_GameTraceChannel1, Sphere);
 }
-
-// Release grabbed item
-void UGrabber::Release()
-{
-	Debug::Print(TEXT("Releasing"));
-}
-
