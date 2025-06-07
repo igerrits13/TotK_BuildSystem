@@ -50,11 +50,13 @@ void UGrabber::Grab()
 	// Exit if there is no valid owner or physics handle
 	if (!GetOwner() || PhysicsHandle == nullptr) return;
 
-	// Initialize variable to store hit result from out parameter
+	// Initialize variable to store hit result from out parameter and rotation in respect to where the object being picked up is at
 	FHitResult HitResult;
+	FRotator OwnerRotation;
 
-	// If there is a valid hit, wake the physics component and grab the object
-	if (GetGrabbableInReach(HitResult)) {
+	// If there is a valid hit, rotate the player towards the object, wake the physics component, and grab the object
+	if (GetGrabbableInReach(HitResult, OwnerRotation)) {
+		GetOwner()->SetActorRotation(OwnerRotation);
 		UPrimitiveComponent* HitComponent = HitResult.GetComponent();
 		HitComponent->WakeAllRigidBodies();
 		PhysicsHandle->GrabComponentAtLocationWithRotation(
@@ -72,24 +74,28 @@ void UGrabber::Release()
 	// Exit if there is no valid physics handle
 	if (PhysicsHandle == nullptr) return;
 
-	// Check if an object is currently held, if so wake up the rigid body and release that object
+	// Check if an object is currently held, if so wake up the rigid body, remove any velocity from the object and drop the object straight down
 	if (PhysicsHandle->GetGrabbedComponent() != nullptr) {
 		PhysicsHandle->GetGrabbedComponent()->WakeAllRigidBodies();
+		PhysicsHandle->GetGrabbedComponent()->SetPhysicsLinearVelocity(FVector::ZeroVector);
+		PhysicsHandle->GetGrabbedComponent()->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
 		PhysicsHandle->ReleaseComponent();
 	}
 }
 
 // Check if there is a grabbable object and return if there is
-bool UGrabber::GetGrabbableInReach(FHitResult& OutHitResult) const
+bool UGrabber::GetGrabbableInReach(FHitResult& OutHitResult, FRotator& OutOwnerRotation) const
 {
 	// Setup variables to store rotation and location
 	FVector OwnerLocation;
-	FRotator OwnerRotation;
-	GetOwner()->GetActorEyesViewPoint(OwnerLocation, OwnerRotation);
+	GetOwner()->GetActorEyesViewPoint(OwnerLocation, OutOwnerRotation);
 
 	// Create a line trace between character and endpoint where character can reach
 	FVector Start = OwnerLocation;
 	FVector End = Start + GetForwardVector() * MaxGrabDistance + CameraOffsetVector;
+
+	// Draw debug traces
+	DrawDebugLine(GetWorld(), Start, End, FColor::Red);
 
 	// Check for collisions with moveable actors
 	FCollisionShape Sphere = FCollisionShape::MakeSphere(GrabRadius);

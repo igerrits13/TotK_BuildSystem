@@ -51,5 +51,5 @@ private:
 	// Vector for offsetting the height of held objects caused by third-person camera
 	FVector CameraOffsetVector;
 
-	bool GetGrabbableInReach(FHitResult& OutHitResult) const;
+	bool GetGrabbableInReach(FHitResult& OutHitResult, FRotator& OutOwnerRotation) const;
 };
