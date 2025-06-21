@@ -53,6 +53,22 @@ class ATotK_BuildSystemCharacter : public ACharacter
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	UInputAction* ReleaseAction;
 
+	/** Look Release Action */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+	UInputAction* RotateLeftAction;
+
+	/** Look Release Action */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+	UInputAction* RotateRightAction;
+
+	/** Look Release Action */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+	UInputAction* RotateUpAction;
+
+	/** Look Release Action */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+	UInputAction* RotateDownAction;
+
 
 public:
 	ATotK_BuildSystemCharacter();
@@ -71,6 +87,18 @@ protected:
 
 	/** Called for releasing input */
 	void Release(const FInputActionValue& value);
+
+	/** Called for releasing input */
+	void RotateLeft(const FInputActionValue& value);
+
+	/** Called for releasing input */
+	void RotateRight(const FInputActionValue& value);
+
+	/** Called for releasing input */
+	void RotateUp(const FInputActionValue& value);
+
+	/** Called for releasing input */
+	void RotateDown(const FInputActionValue& value);
 			
 
 protected:

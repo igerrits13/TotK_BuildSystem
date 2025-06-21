@@ -35,6 +35,21 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grab Settings")
 	float MaxHoldDistance = 250.f;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grab Settings")
+	float RotationDegrees = 45.f;
+
+	UFUNCTION(BlueprintCallable)
+	void RotateLeft();
+
+	UFUNCTION(BlueprintCallable)
+	void RotateRight();
+
+	UFUNCTION(BlueprintCallable)
+	void RotateUp();
+
+	UFUNCTION(BlueprintCallable)
+	void RotateDown();
+
 protected:
 	// Called when the game starts
 	virtual void BeginPlay() override;
@@ -43,7 +58,19 @@ public:
 	// Called every frame
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
+	// Check if an item is currently grabbed
+	bool IsHoldingObject();
+
 private:
+
+	// Current distance that an object is being held at
+	float CurrentHoldDistance;
+
+	// Player facing rotation of the held object
+	FRotator HeldRotation;
+
+	// Player adjusted rotation
+	FRotator AdjustedRotation;
 
 	// Physics handle for moving objects
 	UPhysicsHandleComponent* PhysicsHandle;
@@ -51,5 +78,7 @@ private:
 	// Vector for offsetting the height of held objects caused by third-person camera
 	FVector CameraOffsetVector;
 
+	// Check if there is a grabbable object and return if there is
 	bool GetGrabbableInReach(FHitResult& OutHitResult, FRotator& OutOwnerRotation) const;
+
 };

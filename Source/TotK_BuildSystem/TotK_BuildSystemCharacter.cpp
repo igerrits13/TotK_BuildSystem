@@ -95,6 +95,12 @@ void ATotK_BuildSystemCharacter::SetupPlayerInputComponent(UInputComponent* Play
 		// Grab and release
 		EnhancedInputComponent->BindAction(GrabAction, ETriggerEvent::Started, this, &ATotK_BuildSystemCharacter::Grab);
 		EnhancedInputComponent->BindAction(ReleaseAction, ETriggerEvent::Completed, this, &ATotK_BuildSystemCharacter::Release);
+
+		// Rotate held objects
+		EnhancedInputComponent->BindAction(RotateLeftAction, ETriggerEvent::Started, this, &ATotK_BuildSystemCharacter::RotateLeft);
+		EnhancedInputComponent->BindAction(RotateRightAction, ETriggerEvent::Started, this, &ATotK_BuildSystemCharacter::RotateRight);
+		EnhancedInputComponent->BindAction(RotateUpAction, ETriggerEvent::Started, this, &ATotK_BuildSystemCharacter::RotateUp);
+		EnhancedInputComponent->BindAction(RotateDownAction, ETriggerEvent::Started, this, &ATotK_BuildSystemCharacter::RotateDown);
 	}
 	else
 	{
@@ -151,5 +157,37 @@ void ATotK_BuildSystemCharacter::Release(const FInputActionValue& value)
 {
 	if (GrabberComponent) {
 		GrabberComponent->Release();
+	}
+}
+
+// Rotate objects to the left
+void ATotK_BuildSystemCharacter::RotateLeft(const FInputActionValue& value)
+{
+	if (GrabberComponent && GrabberComponent->IsHoldingObject()) {
+		GrabberComponent->RotateLeft();
+	}
+}
+
+// Rotate objects to the right
+void ATotK_BuildSystemCharacter::RotateRight(const FInputActionValue& value)
+{
+	if (GrabberComponent && GrabberComponent->IsHoldingObject()) {
+		GrabberComponent->RotateRight();
+	}
+}
+
+// Rotate objects up
+void ATotK_BuildSystemCharacter::RotateUp(const FInputActionValue& value)
+{
+	if (GrabberComponent && GrabberComponent->IsHoldingObject()) {
+		GrabberComponent->RotateUp();
+	}
+}
+
+// Rotate objects down
+void ATotK_BuildSystemCharacter::RotateDown(const FInputActionValue& value)
+{
+	if (GrabberComponent && GrabberComponent->IsHoldingObject()) {
+		GrabberComponent->RotateDown();
 	}
 }
