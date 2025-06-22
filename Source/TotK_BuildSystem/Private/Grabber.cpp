@@ -45,15 +45,26 @@ void UGrabber::TickComponent(float DeltaTime, ELevelTick TickType, FActorCompone
 	// Debugging lines for testing
 	DrawDebugDirectionalArrow(GetWorld(), PhysicsHandle->GetGrabbedComponent()->GetComponentLocation(), PhysicsHandle->GetGrabbedComponent()->GetComponentLocation() + PhysicsHandle->GetGrabbedComponent()->GetForwardVector() * 100, 20, FColor::Green, false);
 	FVector Start = PhysicsHandle->GetGrabbedComponent()->GetComponentLocation();
-	FRotator LookAtRot = UKismetMathLibrary::FindLookAtRotation(Start, GetOwner()->GetActorLocation());
-	FVector Direction = LookAtRot.Vector();
-	FVector End = Start + (Direction * 100.0f); 
+	FRotator LookAtRotation = UKismetMathLibrary::FindLookAtRotation(Start, GetOwner()->GetActorLocation());
+	FVector Direction = LookAtRotation.Vector();
+	FVector End = Start + (Direction * 100.0f);
 	DrawDebugDirectionalArrow(GetWorld(), Start, End, 10, FColor::Purple, false, 0.f, 0, 2.f);
 
-	// Otherwise, set the held objects current location and rotation
+	// Store the location of the player and where the held object should be held at
+	FVector PlayerLocation = GetOwner()->GetActorLocation();
 	FVector TargetLocation = GetOwner()->GetActorLocation() + GetForwardVector() * CurrentHoldDistance + CameraOffsetVector;
-	HeldRotation = UKismetMathLibrary::FindLookAtRotation(PhysicsHandle->GetGrabbedComponent()->GetComponentLocation(), GetOwner()->GetActorLocation());
-	PhysicsHandle->SetTargetLocationAndRotation(TargetLocation, HeldRotation + AdjustedRotation);
+
+	// Store the rotation orientation that the object should have and combine with the overall rotation applied by the player
+	FRotator LookAtRot = UKismetMathLibrary::FindLookAtRotation( TargetLocation, PlayerLocation);
+	FRotator AdjustedLookAtRot = FRotator(0.f, LookAtRot.Yaw, 0.f);
+	FQuat FinalQuat = FQuat(AdjustedLookAtRot) * AdjustedRotation;
+
+	// Set the location and rotation of the held object
+	PhysicsHandle->SetTargetLocationAndRotation(TargetLocation, FinalQuat.Rotator());
+
+	DrawDebugLine(GetWorld(), TargetLocation, TargetLocation + FinalQuat.GetRightVector() * 100, FColor::Red);
+	DrawDebugLine(GetWorld(), TargetLocation, TargetLocation + FinalQuat.GetUpVector() * 100, FColor::Green);
+	DrawDebugLine(GetWorld(), TargetLocation, TargetLocation + FinalQuat.GetForwardVector() * 100, FColor::Blue);
 
 	// Initialize variable to store hit result from out parameter and rotation in respect to where the object being picked up is at
 	FVector OwnerLocation;
@@ -86,7 +97,7 @@ void UGrabber::Grab()
 		FVector PlayerLocation = GetOwner()->GetActorLocation();
 		FVector ObjectLocation = HitComponent->GetComponentLocation();
 		CurrentHoldDistance = FVector::Dist(PlayerLocation, ObjectLocation);
-		AdjustedRotation = FRotator::ZeroRotator;
+		AdjustedRotation = FQuat::Identity;
 
 		// Grab the object with its current location and rotation
 		PhysicsHandle->GrabComponentAtLocationWithRotation(
@@ -136,24 +147,40 @@ bool UGrabber::IsHoldingObject()
 // Rotate the currently held object to the left
 void UGrabber::RotateLeft()
 {
-	AdjustedRotation += FRotator(0.f, RotationDegrees, 0.f);
+	FQuat FacingQuat = FQuat(FRotator(0.f, HeldRotation.Yaw, 0.f));
+	FVector UpVec = FacingQuat.GetUpVector();
+
+	FQuat DeltaRot = FQuat(UpVec, FMath::DegreesToRadians(RotationDegrees));
+	AdjustedRotation = DeltaRot * AdjustedRotation;
 }
 
 // Rotate the currently held object to the right
 void UGrabber::RotateRight()
 {
-	AdjustedRotation += FRotator(0.f, -RotationDegrees, 0.f);
+	FQuat FacingQuat = FQuat(FRotator(0.f, HeldRotation.Yaw, 0.f));
+	FVector UpVec = FacingQuat.GetUpVector();
+
+	FQuat DeltaRot = FQuat(UpVec, FMath::DegreesToRadians(-RotationDegrees));
+	AdjustedRotation = DeltaRot * AdjustedRotation;
 }
 
 // Rotate the currently held object up
 void UGrabber::RotateUp()
 {
-	AdjustedRotation += FRotator(RotationDegrees, 0.f, 0.f);
-	//AdjustedRotation += UKismetMathLibrary::RotatorFromAxisAndAngle(-GetOwner()->GetActorForwardVector(), RotationDegrees);
+	FQuat FacingQuat = FQuat(FRotator(0.f, HeldRotation.Yaw, 0.f));
+	FVector RightVec = FacingQuat.GetRightVector();
+
+	FQuat DeltaRot = FQuat(RightVec, FMath::DegreesToRadians(-RotationDegrees));
+	AdjustedRotation = DeltaRot * AdjustedRotation;
+
 }
 
 // Rotate the currently held object down
 void UGrabber::RotateDown()
 {
-	AdjustedRotation += FRotator(-RotationDegrees, 0.f, 0.f);
+	FQuat FacingQuat = FQuat(FRotator(0.f, HeldRotation.Yaw, 0.f));
+	FVector RightVec = FacingQuat.GetRightVector();
+
+	FQuat DeltaRot = FQuat(RightVec, FMath::DegreesToRadians(RotationDegrees));
+	AdjustedRotation = DeltaRot * AdjustedRotation;
 }

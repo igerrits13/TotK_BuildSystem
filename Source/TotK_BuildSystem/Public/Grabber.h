@@ -70,7 +70,7 @@ private:
 	FRotator HeldRotation;
 
 	// Player adjusted rotation
-	FRotator AdjustedRotation;
+	FQuat AdjustedRotation;
 
 	// Physics handle for moving objects
 	UPhysicsHandleComponent* PhysicsHandle;
