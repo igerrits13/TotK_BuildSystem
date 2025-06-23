@@ -55,7 +55,7 @@ void UGrabber::TickComponent(float DeltaTime, ELevelTick TickType, FActorCompone
 	FVector TargetLocation = GetOwner()->GetActorLocation() + GetForwardVector() * CurrentHoldDistance + CameraOffsetVector;
 
 	// Store the rotation orientation that the object should have and combine with the overall rotation applied by the player
-	FRotator LookAtRot = UKismetMathLibrary::FindLookAtRotation( TargetLocation, PlayerLocation);
+	FRotator LookAtRot = UKismetMathLibrary::FindLookAtRotation(TargetLocation, PlayerLocation);
 	FRotator AdjustedLookAtRot = FRotator(0.f, LookAtRot.Yaw, 0.f);
 	FQuat FinalQuat = FQuat(AdjustedLookAtRot) * AdjustedRotation;
 
@@ -71,7 +71,7 @@ void UGrabber::TickComponent(float DeltaTime, ELevelTick TickType, FActorCompone
 	FRotator OwnerRotation;
 
 	GetOwner()->GetActorEyesViewPoint(OwnerLocation, OwnerRotation);
-	GetOwner()->SetActorRotation(FRotator(0,OwnerRotation.Yaw,0));
+	GetOwner()->SetActorRotation(FRotator(0, OwnerRotation.Yaw, 0));
 }
 
 // Grab item if able
@@ -99,6 +99,11 @@ void UGrabber::Grab()
 		CurrentHoldDistance = FVector::Dist(PlayerLocation, ObjectLocation);
 		AdjustedRotation = FQuat::Identity;
 
+		// Make sure the object is not held too closely
+		if (CurrentHoldDistance < MinHoldDistance) {
+			CurrentHoldDistance = MinHoldDistance;
+		}
+
 		// Grab the object with its current location and rotation
 		PhysicsHandle->GrabComponentAtLocationWithRotation(
 			HitComponent,
@@ -113,7 +118,7 @@ void UGrabber::Grab()
 void UGrabber::Release()
 {
 	// Exit if there is no valid physics handle or no held object
-	if (PhysicsHandle == nullptr ||  PhysicsHandle->GetGrabbedComponent() == nullptr) return;
+	if (PhysicsHandle == nullptr || PhysicsHandle->GetGrabbedComponent() == nullptr) return;
 
 	// Otherwise, wake up the rigid body, remove any velocity from the object and drop the object straight down
 	PhysicsHandle->GetGrabbedComponent()->WakeAllRigidBodies();
@@ -183,4 +188,26 @@ void UGrabber::RotateDown()
 
 	FQuat DeltaRot = FQuat(RightVec, FMath::DegreesToRadians(RotationDegrees));
 	AdjustedRotation = DeltaRot * AdjustedRotation;
+}
+
+// Move the currently held object towards player
+void UGrabber::MoveTowards()
+{
+	if (CurrentHoldDistance > MinHoldDistance + 50.f) {
+		CurrentHoldDistance -= 50.f;
+	}
+	else {
+		CurrentHoldDistance = MinHoldDistance;
+	}
+}
+
+// Move the currently held object away from player
+void UGrabber::MoveAway()
+{
+	if (CurrentHoldDistance < MaxHoldDistance - 50.f) {
+		CurrentHoldDistance += 50.f;
+	}
+	else {
+		CurrentHoldDistance = MaxHoldDistance;
+	}
 }

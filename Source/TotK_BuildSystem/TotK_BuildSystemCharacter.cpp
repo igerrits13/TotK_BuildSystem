@@ -22,7 +22,7 @@ ATotK_BuildSystemCharacter::ATotK_BuildSystemCharacter()
 {
 	// Set size for collision capsule
 	GetCapsuleComponent()->InitCapsuleSize(42.f, 96.0f);
-		
+
 	// Don't rotate when the controller rotates. Let that just affect the camera.
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationYaw = false;
@@ -78,10 +78,10 @@ void ATotK_BuildSystemCharacter::SetupPlayerInputComponent(UInputComponent* Play
 			Subsystem->AddMappingContext(DefaultMappingContext, 0);
 		}
 	}
-	
+
 	// Set up action bindings
 	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent)) {
-		
+
 		// Jumping
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, this, &ACharacter::Jump);
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
@@ -101,6 +101,10 @@ void ATotK_BuildSystemCharacter::SetupPlayerInputComponent(UInputComponent* Play
 		EnhancedInputComponent->BindAction(RotateRightAction, ETriggerEvent::Started, this, &ATotK_BuildSystemCharacter::RotateRight);
 		EnhancedInputComponent->BindAction(RotateUpAction, ETriggerEvent::Started, this, &ATotK_BuildSystemCharacter::RotateUp);
 		EnhancedInputComponent->BindAction(RotateDownAction, ETriggerEvent::Started, this, &ATotK_BuildSystemCharacter::RotateDown);
+
+		// Move held objects
+		EnhancedInputComponent->BindAction(MoveTowardsAction, ETriggerEvent::Started, this, &ATotK_BuildSystemCharacter::MoveTowards);
+		EnhancedInputComponent->BindAction(MoveAwayAction, ETriggerEvent::Started, this, &ATotK_BuildSystemCharacter::MoveAway);
 	}
 	else
 	{
@@ -121,7 +125,7 @@ void ATotK_BuildSystemCharacter::Move(const FInputActionValue& Value)
 
 		// get forward vector
 		const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
-	
+
 		// get right vector 
 		const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
 
@@ -152,7 +156,7 @@ void ATotK_BuildSystemCharacter::Grab(const FInputActionValue& value)
 	}
 }
 
-// Release objects
+// Release held objects
 void ATotK_BuildSystemCharacter::Release(const FInputActionValue& value)
 {
 	if (GrabberComponent) {
@@ -160,7 +164,7 @@ void ATotK_BuildSystemCharacter::Release(const FInputActionValue& value)
 	}
 }
 
-// Rotate objects to the left
+// Rotate held objects to the left
 void ATotK_BuildSystemCharacter::RotateLeft(const FInputActionValue& value)
 {
 	if (GrabberComponent && GrabberComponent->IsHoldingObject()) {
@@ -168,7 +172,7 @@ void ATotK_BuildSystemCharacter::RotateLeft(const FInputActionValue& value)
 	}
 }
 
-// Rotate objects to the right
+// Rotate held objects to the right
 void ATotK_BuildSystemCharacter::RotateRight(const FInputActionValue& value)
 {
 	if (GrabberComponent && GrabberComponent->IsHoldingObject()) {
@@ -176,7 +180,7 @@ void ATotK_BuildSystemCharacter::RotateRight(const FInputActionValue& value)
 	}
 }
 
-// Rotate objects up
+// Rotate held objects up
 void ATotK_BuildSystemCharacter::RotateUp(const FInputActionValue& value)
 {
 	if (GrabberComponent && GrabberComponent->IsHoldingObject()) {
@@ -184,10 +188,26 @@ void ATotK_BuildSystemCharacter::RotateUp(const FInputActionValue& value)
 	}
 }
 
-// Rotate objects down
+// Rotate held objects down
 void ATotK_BuildSystemCharacter::RotateDown(const FInputActionValue& value)
 {
 	if (GrabberComponent && GrabberComponent->IsHoldingObject()) {
 		GrabberComponent->RotateDown();
+	}
+}
+
+// Move held objects towards player
+void ATotK_BuildSystemCharacter::MoveTowards(const FInputActionValue& value)
+{
+	if (GrabberComponent && GrabberComponent->IsHoldingObject()) {
+		GrabberComponent->MoveTowards();
+	}
+}
+
+// Move held objects away from player
+void ATotK_BuildSystemCharacter::MoveAway(const FInputActionValue& value)
+{
+	if (GrabberComponent && GrabberComponent->IsHoldingObject()) {
+		GrabberComponent->MoveAway();
 	}
 }

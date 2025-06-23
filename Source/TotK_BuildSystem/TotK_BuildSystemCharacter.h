@@ -16,7 +16,7 @@ struct FInputActionValue;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogTemplateCharacter, Log, All);
 
-UCLASS(config=Game)
+UCLASS(config = Game)
 class ATotK_BuildSystemCharacter : public ACharacter
 {
 	GENERATED_BODY()
@@ -28,7 +28,7 @@ class ATotK_BuildSystemCharacter : public ACharacter
 	/** Follow camera */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 	UCameraComponent* FollowCamera;
-	
+
 	/** MappingContext */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	UInputMappingContext* DefaultMappingContext;
@@ -53,26 +53,34 @@ class ATotK_BuildSystemCharacter : public ACharacter
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	UInputAction* ReleaseAction;
 
-	/** Look Release Action */
+	/** Rotate left Action */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	UInputAction* RotateLeftAction;
 
-	/** Look Release Action */
+	/** Rotate right Action */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	UInputAction* RotateRightAction;
 
-	/** Look Release Action */
+	/** Rotate up Action */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	UInputAction* RotateUpAction;
 
-	/** Look Release Action */
+	/** Rotate down Action */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	UInputAction* RotateDownAction;
+
+	/** Move towards Action */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+	UInputAction* MoveTowardsAction;
+
+	/** Move away from Action */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+	UInputAction* MoveAwayAction;
 
 
 public:
 	ATotK_BuildSystemCharacter();
-	
+
 
 protected:
 
@@ -88,23 +96,29 @@ protected:
 	/** Called for releasing input */
 	void Release(const FInputActionValue& value);
 
-	/** Called for releasing input */
+	/** Called for rotating left input */
 	void RotateLeft(const FInputActionValue& value);
 
-	/** Called for releasing input */
+	/** Called for rotating right input */
 	void RotateRight(const FInputActionValue& value);
 
-	/** Called for releasing input */
+	/** Called for rotating up input */
 	void RotateUp(const FInputActionValue& value);
 
-	/** Called for releasing input */
+	/** Called for rotating down input */
 	void RotateDown(const FInputActionValue& value);
-			
+
+	/** Called for moving towards input */
+	void MoveTowards(const FInputActionValue& value);
+
+	/** Called for moving away input */
+	void MoveAway(const FInputActionValue& value);
+
 
 protected:
 	// APawn interface
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
-	
+
 	// To add mapping context
 	virtual void BeginPlay();
 

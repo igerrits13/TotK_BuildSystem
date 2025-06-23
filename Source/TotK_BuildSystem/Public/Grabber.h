@@ -8,12 +8,12 @@
 #include "Grabber.generated.h"
 
 
-UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
+UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
 class TOTK_BUILDSYSTEM_API UGrabber : public USceneComponent
 {
 	GENERATED_BODY()
 
-public:	
+public:
 	// Sets default values for this component's properties
 	UGrabber();
 
@@ -30,10 +30,10 @@ public:
 	float GrabRadius = 100.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grab Settings")
-	float MinHoldDistance = 100.f;
+	float MinHoldDistance = 250.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grab Settings")
-	float MaxHoldDistance = 250.f;
+	float MaxHoldDistance = 650.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grab Settings")
 	float RotationDegrees = 45.f;
@@ -50,11 +50,17 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void RotateDown();
 
+	UFUNCTION(BlueprintCallable)
+	void MoveTowards();
+
+	UFUNCTION(BlueprintCallable)
+	void MoveAway();
+
 protected:
 	// Called when the game starts
 	virtual void BeginPlay() override;
 
-public:	
+public:
 	// Called every frame
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
