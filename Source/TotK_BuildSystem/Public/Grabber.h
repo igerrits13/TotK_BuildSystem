@@ -24,6 +24,9 @@ public:
 	void Release();
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grab Settings")
+	float LineTraceOffset = 5.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grab Settings")
 	float MaxGrabDistance = 400.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grab Settings")
@@ -68,6 +71,9 @@ public:
 	bool IsHoldingObject();
 
 private:
+
+	// Parameters to ignore the player when running a line trace
+	FCollisionQueryParams Params;
 
 	// Current distance that an object is being held at
 	float CurrentHoldDistance;

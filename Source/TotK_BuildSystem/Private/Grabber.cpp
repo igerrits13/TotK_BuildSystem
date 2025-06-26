@@ -5,6 +5,7 @@
 #include "Engine/World.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "DrawDebugHelpers.h"
+#include "MoveableObject.h"
 
 #include "../DebgugHelper.h"
 
@@ -31,6 +32,9 @@ void UGrabber::BeginPlay()
 
 	// Vector for offsetting the height of held objects caused by third-person camera
 	CameraOffsetVector = FVector(0.f, 0.f, GetOwner()->GetSimpleCollisionHalfHeight() * 1.5);
+
+	// Store parameters to ignore the player when trying to grab
+	Params.AddIgnoredActor(GetOwner());
 }
 
 
@@ -84,8 +88,8 @@ void UGrabber::Grab()
 	FHitResult HitResult;
 	FRotator OwnerRotation;
 
-	// If there is a valid hit
-	if (GetGrabbableInReach(HitResult, OwnerRotation)) {
+	// If there is a valid hit and the object is a moveable object
+	if (GetGrabbableInReach(HitResult, OwnerRotation) && HitResult.GetActor() && HitResult.GetActor()->IsA(AMoveableObject::StaticClass())) {
 		// Rotate the player towrards the object being picked up
 		GetOwner()->SetActorRotation(OwnerRotation);
 
@@ -111,6 +115,11 @@ void UGrabber::Grab()
 			ObjectLocation,
 			HitComponent->GetComponentRotation()
 		);
+	}
+
+	// For debugging
+	else if (HitResult.GetActor() && !HitResult.GetActor()->IsA(AMoveableObject::StaticClass())) {
+		Debug::Print(TEXT("Not a moveable object"));
 	}
 }
 
@@ -140,7 +149,7 @@ bool UGrabber::GetGrabbableInReach(FHitResult& OutHitResult, FRotator& OutOwnerR
 
 	// Check for collisions with moveable actors
 	FCollisionShape Sphere = FCollisionShape::MakeSphere(GrabRadius);
-	return GetWorld()->SweepSingleByChannel(OutHitResult, Start, End, FQuat::Identity, ECC_GameTraceChannel1, Sphere);
+	return GetWorld()->SweepSingleByChannel(OutHitResult, Start, End, FQuat::Identity, ECC_GameTraceChannel1, Sphere, Params);
 }
 
 // Check if the player is currently holding an item
