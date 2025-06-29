@@ -93,4 +93,7 @@ private:
 	// Check if there is a grabbable object and return if there is
 	bool GetGrabbableInReach(FHitResult& OutHitResult, FRotator& OutOwnerRotation) const;
 
+	UMaterialInterface* Mat;
+
+	UMaterialInstanceDynamic* DynamicMat;
 };

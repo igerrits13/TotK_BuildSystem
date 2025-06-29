@@ -18,6 +18,9 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Mesh")
 	UStaticMeshComponent* MeshComponent;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grab Settings")
+	UMaterialInterface* Mat;
+
 
 protected:
 	// Called when the game starts or when spawned

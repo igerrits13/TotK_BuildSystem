@@ -19,6 +19,8 @@ AMoveableObject::AMoveableObject()
 void AMoveableObject::BeginPlay()
 {
 	Super::BeginPlay();
+
+	// 			HitComponent->SetMaterial(0, Mat);
 	
 }
 
