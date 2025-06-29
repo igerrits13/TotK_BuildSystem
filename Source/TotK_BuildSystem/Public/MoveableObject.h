@@ -4,30 +4,39 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "MoveableObjectInterface.h"
 #include "MoveableObject.generated.h"
 
 UCLASS()
-class TOTK_BUILDSYSTEM_API AMoveableObject : public AActor
+class TOTK_BUILDSYSTEM_API AMoveableObject : public AActor, public IMoveableObjectInterface
 {
 	GENERATED_BODY()
-	
-public:	
+
+public:
 	// Sets default values for this actor's properties
 	AMoveableObject();
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Mesh")
 	UStaticMeshComponent* MeshComponent;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grab Settings")
-	UMaterialInterface* Mat;
-
 
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
-public:	
+public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
+	// Create and apply new material instance when obejct is grabbed
+	virtual void OnGrab_Implementation() override;
+
+	// When the object is released, set its material back to the original
+	virtual void OnRelease_Implementation() override;
+
+	// Used to store the default material for the current object
+	UMaterialInterface* DefaultMat;
+
+	// A dynamic material to apply to the current object, allowing for manipulation of parameters
+	UMaterialInstanceDynamic* DynamicMat;
 };

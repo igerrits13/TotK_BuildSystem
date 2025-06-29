@@ -5,11 +5,12 @@
 #include "CoreMinimal.h"
 #include "Components/SceneComponent.h"
 #include "PhysicsEngine/PhysicsHandleComponent.h"
+#include "MoveableObjectInterface.h"
 #include "Grabber.generated.h"
 
 
 UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
-class TOTK_BUILDSYSTEM_API UGrabber : public USceneComponent
+class TOTK_BUILDSYSTEM_API UGrabber : public USceneComponent, public IMoveableObjectInterface
 {
 	GENERATED_BODY()
 
@@ -92,8 +93,4 @@ private:
 
 	// Check if there is a grabbable object and return if there is
 	bool GetGrabbableInReach(FHitResult& OutHitResult, FRotator& OutOwnerRotation) const;
-
-	UMaterialInterface* Mat;
-
-	UMaterialInstanceDynamic* DynamicMat;
 };

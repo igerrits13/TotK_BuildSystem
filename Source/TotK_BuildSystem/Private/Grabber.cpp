@@ -97,12 +97,11 @@ void UGrabber::Grab()
 		UPrimitiveComponent* HitComponent = HitResult.GetComponent();
 		HitComponent->WakeAllRigidBodies();
 
-		Mat = HitComponent->GetMaterial(0);
-		DynamicMat = UMaterialInstanceDynamic::Create(Mat, HitComponent);
-		HitComponent->SetMaterial(0, DynamicMat);
-		DynamicMat->SetScalarParameterValue("Intensity", 10.f);
-		DynamicMat->SetScalarParameterValue("Fuseable", 1.f);
-
+		// Call OnGrab using the moveable objects interface
+		AActor* HitActor = HitComponent->GetOwner();
+		if (HitActor && HitActor->Implements<UMoveableObjectInterface>()) {
+			IMoveableObjectInterface::Execute_OnGrab(HitActor);
+		}
 
 		// Find information for setting the held objects location and rotation and reset adjusted rotation
 		FVector PlayerLocation = GetOwner()->GetActorLocation();
@@ -136,7 +135,8 @@ void UGrabber::Release()
 	// Exit if there is no valid physics handle or no held object
 	if (PhysicsHandle == nullptr || PhysicsHandle->GetGrabbedComponent() == nullptr) return;
 
-	PhysicsHandle->GetGrabbedComponent()->SetMaterial(0, Mat);
+	// Call OnRelease using the moveable objects interface
+	IMoveableObjectInterface::Execute_OnRelease(PhysicsHandle->GetGrabbedComponent()->GetOwner());
 
 	// Otherwise, wake up the rigid body, remove any velocity from the object and drop the object straight down
 	PhysicsHandle->GetGrabbedComponent()->WakeAllRigidBodies();
