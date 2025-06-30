@@ -19,6 +19,9 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Mesh")
 	UStaticMeshComponent* MeshComponent;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Fuse")
+	float TraceRadius = 350.f;
+
 
 protected:
 	// Called when the game starts or when spawned
@@ -39,4 +42,15 @@ public:
 
 	// A dynamic material to apply to the current object, allowing for manipulation of parameters
 	UMaterialInstanceDynamic* DynamicMat;
+
+private:
+	// Check for any overlapping moveable (fuseable) objects
+	UFUNCTION(BlueprintCallable) 
+	AMoveableObject* GetMoveableInRadius();
+
+	// Check if there is a grabbable object in sphere trace
+	UFUNCTION(BlueprintCallable)
+	AMoveableObject* GetMoveableItem(TArray<FHitResult> HitResults, FVector TraceOrigin);
+
+	bool bIsGrabbed = false;
 };
