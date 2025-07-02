@@ -43,11 +43,10 @@ void AMoveableObject::OnGrab_Implementation()
 {
 	bIsGrabbed = true;
 
+	// Create material overlay on grab to allow for updating of material parameters
 	if (Mat != nullptr) {
-		//DynamicMat = MeshComponent->CreateAndSetMaterialInstanceDynamic(0);
 		DynamicMat = UMaterialInstanceDynamic::Create(Mat, MeshComponent);
 		DynamicMat->SetScalarParameterValue("Fuseable", 0.f);
-		//MeshComponent->SetMaterial(1, DynamicMat);
 		MeshComponent->SetOverlayMaterial(DynamicMat);
 	}
 }
@@ -57,7 +56,10 @@ void AMoveableObject::OnRelease_Implementation()
 {
 	bIsGrabbed = false;
 
-	//MeshComponent->SetMaterial(1, nullptr);
+	// Remove overlay on release
+	if (FuseMesh && FuseMesh->MeshComponent->GetOverlayMaterial() != nullptr) {
+		RemoveMoveableItemMaterial(FuseMesh);
+	}
 	MeshComponent->SetOverlayMaterial(nullptr);
 }
 
@@ -111,12 +113,39 @@ AMoveableObject* AMoveableObject::GetMoveableItem(TArray<FHitResult> HitResults,
 			FCollisionQueryParams(FName("LOSCheck"), false, MeshComponent->GetOwner())
 		);
 
-		// If there are no blocking objects, return moveable object
+		// If there are no blocking objects, update materials return moveable object
 		if (!bBlockedHit || TestHit.GetActor() == HitActor) {
-			return Cast<AMoveableObject>(HitActor);
+			AMoveableObject* NearbyMoveable = Cast<AMoveableObject>(HitActor);
+			if (NearbyMoveable != FuseMesh || NearbyMoveable->MeshComponent->GetOverlayMaterial() == nullptr) {
+				RemoveMoveableItemMaterial(FuseMesh);
+				FuseMesh = NearbyMoveable;
+				UpdateMoveableItemMaterial(NearbyMoveable);
+			}
+			return NearbyMoveable;
 		}
 	}
 
-	// Otherwise return nullptr
+	// If no moveable objects are nearby, clear current fuse object's overlay material and return null
+	if (FuseMesh && FuseMesh->MeshComponent->GetOverlayMaterial() != nullptr) {
+		RemoveMoveableItemMaterial(FuseMesh);
+	}
 	return nullptr;
+}
+
+// Update material of nearby fuseable object
+void AMoveableObject::UpdateMoveableItemMaterial(AMoveableObject* MoveableMesh)
+{
+	if (MoveableMesh->Mat != nullptr) {
+		MoveableDynamicMat = UMaterialInstanceDynamic::Create(MoveableMesh->Mat, MeshComponent);
+		MoveableDynamicMat->SetScalarParameterValue("Fuseable", 1.f);
+		MoveableMesh->MeshComponent->SetOverlayMaterial(MoveableDynamicMat);
+	}
+}
+
+// Remove material of nearby fuseable object
+void AMoveableObject::RemoveMoveableItemMaterial(AMoveableObject* MoveableMesh)
+{
+	if (MoveableMesh) {
+		MoveableMesh->MeshComponent->SetOverlayMaterial(nullptr);
+	}
 }

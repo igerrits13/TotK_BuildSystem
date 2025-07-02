@@ -40,17 +40,31 @@ public:
 	// When the object is released, set its material back to the original
 	virtual void OnRelease_Implementation() override;
 
-	// A dynamic material to apply to the current object, allowing for manipulation of parameters
-	UMaterialInstanceDynamic* DynamicMat;
-
 private:
 	// Check for any overlapping moveable (fuseable) objects
-	UFUNCTION(BlueprintCallable) 
+	UFUNCTION(BlueprintCallable)
 	AMoveableObject* GetMoveableInRadius();
 
 	// Check if there is a grabbable object in sphere trace
 	UFUNCTION(BlueprintCallable)
 	AMoveableObject* GetMoveableItem(TArray<FHitResult> HitResults, FVector TraceOrigin);
+
+	// Update material of nearby fuseable object
+	UFUNCTION()
+	void UpdateMoveableItemMaterial(AMoveableObject* MoveableMesh);
+
+	// Remove material of nearby fuseable object
+	UFUNCTION()
+	void RemoveMoveableItemMaterial(AMoveableObject* MoveableMesh);
+
+	// A dynamic material to apply to the current object, allowing for manipulation of parameters
+	UMaterialInstanceDynamic* DynamicMat;
+
+	// A dynamic material to apply to the nearby moveable object
+	UMaterialInstanceDynamic* MoveableDynamicMat;
+
+	// Nearby moveable object
+	AMoveableObject* FuseMesh;
 
 	bool bIsGrabbed = false;
 };
