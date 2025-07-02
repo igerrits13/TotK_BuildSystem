@@ -17,9 +17,6 @@ AMoveableObject::AMoveableObject()
 void AMoveableObject::BeginPlay()
 {
 	Super::BeginPlay();
-
-	// Store the default material for setting on release
-	DefaultMat = MeshComponent->GetMaterial(0);
 }
 
 // Called every frame
@@ -45,10 +42,13 @@ void AMoveableObject::Tick(float DeltaTime)
 void AMoveableObject::OnGrab_Implementation()
 {
 	bIsGrabbed = true;
-	if (DefaultMat != nullptr) {
-		DynamicMat = MeshComponent->CreateAndSetMaterialInstanceDynamic(0);
-		DynamicMat->SetScalarParameterValue("Intensity", 10.f);
+
+	if (Mat != nullptr) {
+		//DynamicMat = MeshComponent->CreateAndSetMaterialInstanceDynamic(0);
+		DynamicMat = UMaterialInstanceDynamic::Create(Mat, MeshComponent);
 		DynamicMat->SetScalarParameterValue("Fuseable", 0.f);
+		//MeshComponent->SetMaterial(1, DynamicMat);
+		MeshComponent->SetOverlayMaterial(DynamicMat);
 	}
 }
 
@@ -56,9 +56,9 @@ void AMoveableObject::OnGrab_Implementation()
 void AMoveableObject::OnRelease_Implementation()
 {
 	bIsGrabbed = false;
-	if (DefaultMat != nullptr) {
-		MeshComponent->SetMaterial(0, DefaultMat);
-	}
+
+	//MeshComponent->SetMaterial(1, nullptr);
+	MeshComponent->SetOverlayMaterial(nullptr);
 }
 
 // Check for any overlapping moveable (fuseable) objects

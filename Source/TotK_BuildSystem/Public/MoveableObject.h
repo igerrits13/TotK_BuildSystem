@@ -16,10 +16,13 @@ public:
 	// Sets default values for this actor's properties
 	AMoveableObject();
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Mesh")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mesh")
 	UStaticMeshComponent* MeshComponent;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Fuse")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mesh")
+	UMaterialInterface* Mat;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fuse")
 	float TraceRadius = 350.f;
 
 
@@ -36,9 +39,6 @@ public:
 
 	// When the object is released, set its material back to the original
 	virtual void OnRelease_Implementation() override;
-
-	// Used to store the default material for the current object
-	UMaterialInterface* DefaultMat;
 
 	// A dynamic material to apply to the current object, allowing for manipulation of parameters
 	UMaterialInstanceDynamic* DynamicMat;
