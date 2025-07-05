@@ -1,4 +1,5 @@
 #include "MoveableObject.h"
+#include "DrawDebugHelpers.h"
 
 #include "../DebgugHelper.h"
 
@@ -10,6 +11,7 @@ AMoveableObject::AMoveableObject()
 
 	// Add the static mesh component
 	MeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MeshComponent"));
+	MeshComponent->SetSimulatePhysics(true);
 	RootComponent = MeshComponent;
 }
 
@@ -25,7 +27,7 @@ void AMoveableObject::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 
 	if (bIsGrabbed) {
-		AMoveableObject* MoveableObject = GetMoveableInRadius();
+		MoveableObject = GetMoveableInRadius();
 
 		// If near a fuseable object, glow green
 		if (MoveableObject != nullptr) {
@@ -61,6 +63,10 @@ void AMoveableObject::OnRelease_Implementation()
 		RemoveMoveableItemMaterial(FuseMesh);
 	}
 	MeshComponent->SetOverlayMaterial(nullptr);
+
+	if (MoveableObject != nullptr) {
+		FuseMoveableObjects(MoveableObject);
+	}
 }
 
 // Check for any overlapping moveable (fuseable) objects
@@ -148,4 +154,32 @@ void AMoveableObject::RemoveMoveableItemMaterial(AMoveableObject* MoveableMesh)
 	if (MoveableMesh) {
 		MoveableMesh->MeshComponent->SetOverlayMaterial(nullptr);
 	}
+}
+
+// Fuse with the nearest fuseable object
+void AMoveableObject::FuseMoveableObjects(AMoveableObject* MoveableMesh)
+{
+	// Move nearby fuseable object to be aligned with held object
+	FVector HeldCenter = MoveableMesh->GetActorLocation();
+	FVector ClosestPoint;
+	MeshComponent->GetClosestPointOnCollision(HeldCenter, ClosestPoint);
+	MoveableMesh->SetActorLocation(ClosestPoint);
+
+	// Create and setup a physics constraint
+	UPhysicsConstraintComponent* PhysicsConstraint = NewObject<UPhysicsConstraintComponent>(MeshComponent->GetOwner());
+	PhysicsConstraint->RegisterComponent();
+	PhysicsConstraint->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepWorldTransform);
+	PhysicsConstraint->SetWorldLocation(MeshComponent->GetOwner()->GetActorLocation());
+	PhysicsConstraint->SetConstrainedComponents(MeshComponent, NAME_None, MoveableMesh->MeshComponent, NAME_None);
+
+	// Configure allowed motion and rotation
+	PhysicsConstraint->SetLinearXLimit(ELinearConstraintMotion::LCM_Locked, 0);
+	PhysicsConstraint->SetLinearYLimit(ELinearConstraintMotion::LCM_Locked, 0);
+	PhysicsConstraint->SetLinearZLimit(ELinearConstraintMotion::LCM_Locked, 0);
+
+	PhysicsConstraint->SetAngularSwing1Limit(EAngularConstraintMotion::ACM_Locked, 0);
+	PhysicsConstraint->SetAngularSwing2Limit(EAngularConstraintMotion::ACM_Locked, 0);
+	PhysicsConstraint->SetAngularTwistLimit(EAngularConstraintMotion::ACM_Locked, 0);
+
+	PhysicsConstraint->SetDisableCollision(true);
 }

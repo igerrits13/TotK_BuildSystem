@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "MoveableObjectInterface.h"
+#include "PhysicsEngine/PhysicsConstraintComponent.h"
 #include "MoveableObject.generated.h"
 
 UCLASS()
@@ -50,12 +51,16 @@ private:
 	AMoveableObject* GetMoveableItem(TArray<FHitResult> HitResults, FVector TraceOrigin);
 
 	// Update material of nearby fuseable object
-	UFUNCTION()
+	UFUNCTION(BlueprintCallable)
 	void UpdateMoveableItemMaterial(AMoveableObject* MoveableMesh);
 
 	// Remove material of nearby fuseable object
-	UFUNCTION()
+	UFUNCTION(BlueprintCallable)
 	void RemoveMoveableItemMaterial(AMoveableObject* MoveableMesh);
+
+	// Fuse with the nearest fuseable object
+	UFUNCTION(BlueprintCallable)
+	void FuseMoveableObjects(AMoveableObject* MoveableMesh);
 
 	// A dynamic material to apply to the current object, allowing for manipulation of parameters
 	UMaterialInstanceDynamic* DynamicMat;
@@ -63,7 +68,10 @@ private:
 	// A dynamic material to apply to the nearby moveable object
 	UMaterialInstanceDynamic* MoveableDynamicMat;
 
-	// Nearby moveable object
+	// Current nearby moveable object
+	AMoveableObject* MoveableObject;
+
+	// Most recent nearby moveable object
 	AMoveableObject* FuseMesh;
 
 	bool bIsGrabbed = false;
