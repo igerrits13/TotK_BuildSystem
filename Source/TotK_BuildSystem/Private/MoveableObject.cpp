@@ -13,6 +13,9 @@ AMoveableObject::AMoveableObject()
 	MeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MeshComponent"));
 	MeshComponent->SetSimulatePhysics(true);
 	RootComponent = MeshComponent;
+
+	// Initialize the set of fused objects
+	FusedObjects.Add(this);
 }
 
 // Called when the game starts or when spawned
@@ -27,59 +30,91 @@ void AMoveableObject::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 
 	if (bIsGrabbed) {
-		MoveableObject = GetMoveableInRadius();
+		// Get the closest moveable object if one exists
+		CurrentMoveableObject = GetMoveableInRadius();
 
-		// If near a fuseable object, glow green
-		if (MoveableObject != nullptr) {
-			DynamicMat->SetScalarParameterValue("Fuseable", 1.f);
-		}
-		// Otherwise glow red
-		else {
-			DynamicMat->SetScalarParameterValue("Fuseable", 0.f);
+		// Update material for all fused objects based on if there is a nearby moveable object or not
+		for (AMoveableObject* Object : FusedObjects) {
+			if (!Object) continue;
+
+			UpdateMoveableObjectMaterial(Object, CurrentMoveableObject ? true : false);
 		}
 	}
 }
 
-// Create and apply new material instance when obejct is grabbed
+// When an object is grabbed, add an overlay material
 void AMoveableObject::OnGrab_Implementation()
 {
 	bIsGrabbed = true;
 
-	// Create material overlay on grab to allow for updating of material parameters
-	if (Mat != nullptr) {
-		DynamicMat = UMaterialInstanceDynamic::Create(Mat, MeshComponent);
-		DynamicMat->SetScalarParameterValue("Fuseable", 0.f);
-		MeshComponent->SetOverlayMaterial(DynamicMat);
+	// Update material for all fused objects of the currently grabbed object
+	for (AMoveableObject* Object : FusedObjects) {
+		if (!Object) continue;
+
+		////////////////////////////////////////////////////////////////////////////////////
+		// For debugging - Print out all fused objects
+		FString ObjectName = Object->GetName();
+		FString fusedNames;
+
+		for (AMoveableObject* fused : Object->FusedObjects)
+		{
+			if (fused)
+			{
+				fusedNames += fused->GetName() + TEXT(", ");
+			}
+		}
+
+		// Trim trailing comma
+		if (fusedNames.EndsWith(TEXT(", ")))
+		{
+			fusedNames.LeftChopInline(2);
+		}
+
+		UE_LOG(LogTemp, Warning, TEXT("%s -> %s"), *ObjectName, *fusedNames);
+
+		////////////////////////////////////////////////////////////////////////////////////
+
+		UpdateMoveableObjectMaterial(Object, false);
 	}
 }
 
-// When the object is released, set its material back to the original
+// When the object is released, remove overalay material
 void AMoveableObject::OnRelease_Implementation()
 {
 	bIsGrabbed = false;
 
-	// Remove overlay on release
-	if (FuseMesh && FuseMesh->MeshComponent->GetOverlayMaterial() != nullptr) {
-		RemoveMoveableItemMaterial(FuseMesh);
+	// Remove material from nearby moveable object and all its fused objects, if one exists
+	if (PrevMoveableObject) {
+		for (AMoveableObject* Object : PrevMoveableObject->FusedObjects) {
+			RemoveMoveableObjectMaterial(Object);
+		}
 	}
-	MeshComponent->SetOverlayMaterial(nullptr);
 
-	if (MoveableObject != nullptr) {
-		FuseMoveableObjects(MoveableObject);
+	// Remove material from the currently held object and all of its fused objects
+	for (AMoveableObject* Object : FusedObjects) {
+		RemoveMoveableObjectMaterial(Object);
 	}
+
+	// If there is a nearby moveable object on release, fuse object groups together
+	if (CurrentMoveableObject != nullptr) {
+		FuseMoveableObjects(CurrentMoveableObject);
+	}
+
+	// Reset previous moveable mesh
+	PrevMoveableObject = nullptr;
 }
 
-// Check for any overlapping moveable (fuseable) objects
+// Check for any nearby moveable objects
 AMoveableObject* AMoveableObject::GetMoveableInRadius()
 {
 	if (MeshComponent == nullptr) return nullptr;
 
-	// Create sweep variables
+	// Initialize variables used for sphere sweep
 	FVector TraceOrigin = MeshComponent->GetOwner()->GetActorLocation();
 	TArray<FHitResult> HitResults;
 	FCollisionQueryParams Params(FName("SweepCheck"), false, MeshComponent->GetOwner());
 
-	// Get all nearby objects
+	// Get all nearby objects within sphere sweep
 	bool bHit = GetWorld()->SweepMultiByChannel(
 		HitResults,
 		TraceOrigin,
@@ -90,73 +125,103 @@ AMoveableObject* AMoveableObject::GetMoveableInRadius()
 		Params
 	);
 
-	// Search for and return moveable objects within nearby objects
-	return GetMoveableItem(HitResults, TraceOrigin);
+	// Get closest moveable object
+	return GetMoveableObject(HitResults, TraceOrigin);
 }
 
-// Check if there is a grabbable object in sphere trace
-AMoveableObject* AMoveableObject::GetMoveableItem(TArray<FHitResult> HitResults, FVector TraceOrigin)
+// Get closest moveable object
+AMoveableObject* AMoveableObject::GetMoveableObject(TArray<FHitResult> HitResults, FVector TraceOrigin)
 {
-	// Iterate over hit results
+	// Initialize variable to track nearby moveable object
+	AMoveableObject* MoveableObject;
+
+	// Iterate over all hit results
 	for (const FHitResult& HitResult : HitResults) {
 		AActor* HitActor = HitResult.GetActor();
 
 		// Move to the next actor if current hit is not a valid actor or is not a moveable object
-		if (!HitActor || !HitActor->IsA(AMoveableObject::StaticClass())) {
-			continue;
+		if (!HitActor || !HitActor->IsA(AMoveableObject::StaticClass())) continue;
+
+		// Update moveable object based on line trace. If null, continue, otherwise return the nearby moveable object
+		MoveableObject = CheckMoveableObjectTrace(HitActor, TraceOrigin);
+
+		if (MoveableObject == nullptr) continue;
+
+		return MoveableObject;
+	}
+
+	// If no moveable objects are nearby, clear current fuse object's overlay material if one exists and return null
+	if (PrevMoveableObject && PrevMoveableObject->MeshComponent->GetOverlayMaterial() != nullptr) {
+		for (AMoveableObject* Object : PrevMoveableObject->FusedObjects) {
+			RemoveMoveableObjectMaterial(Object);
 		}
+	}
 
-		// Store variables for individual line traces, checking if a nearby moveable object is blocked by other objects
-		FVector TargetLocation = HitActor->GetActorLocation();
-		FHitResult TestHit;
+	return nullptr;
+}
 
-		// Line trace to see if there are any blocking objects
-		bool bBlockedHit = GetWorld()->LineTraceSingleByChannel(
-			TestHit,
-			TraceOrigin,
-			TargetLocation,
-			ECC_Visibility,
-			FCollisionQueryParams(FName("LOSCheck"), false, MeshComponent->GetOwner())
-		);
 
-		// If there are no blocking objects, update materials return moveable object
-		if (!bBlockedHit || TestHit.GetActor() == HitActor) {
-			AMoveableObject* NearbyMoveable = Cast<AMoveableObject>(HitActor);
-			if (NearbyMoveable != FuseMesh || NearbyMoveable->MeshComponent->GetOverlayMaterial() == nullptr) {
-				RemoveMoveableItemMaterial(FuseMesh);
-				FuseMesh = NearbyMoveable;
-				UpdateMoveableItemMaterial(NearbyMoveable);
+AMoveableObject* AMoveableObject::CheckMoveableObjectTrace(AActor* HitActor, FVector TraceOrigin)
+{
+	// Initialize variables used for line trace
+	FVector TargetLocation = HitActor->GetActorLocation();
+	FHitResult TestHit;
+	AMoveableObject* NearbyMoveable = Cast<AMoveableObject>(HitActor);
+
+	// Line trace to see if there are any blocking objects
+	bool bBlockedHit = GetWorld()->LineTraceSingleByChannel(
+		TestHit,
+		TraceOrigin,
+		TargetLocation,
+		ECC_Visibility,
+		FCollisionQueryParams(FName("LOSCheck"), false, MeshComponent->GetOwner())
+	);
+
+	// If line hit result is an already fused object, return nullptr
+	if (FusedObjects.Contains(NearbyMoveable)) return nullptr;
+
+	// If there are no blocking objects or no objects between actors, update materials if needed and return moveable object
+	if (!bBlockedHit || TestHit.GetActor() == HitActor) {
+		// If there is a new nearby moveable object or the nearby moveable does not have a overlay material, update the previous moveable mesh and add an overlay material
+		if (NearbyMoveable != PrevMoveableObject || NearbyMoveable->MeshComponent->GetOverlayMaterial() == nullptr) {
+			// If the previous nearby moveable object still has a overlay material, remove it
+			if (PrevMoveableObject && PrevMoveableObject->MeshComponent->GetOverlayMaterial() != nullptr) {
+				for (AMoveableObject* Object : PrevMoveableObject->FusedObjects) {
+					RemoveMoveableObjectMaterial(Object);
+				}
 			}
-			return NearbyMoveable;
+			PrevMoveableObject = NearbyMoveable;
+			// Update materials for all fused objects of the nearby moveable object
+			for (AMoveableObject* Object : PrevMoveableObject->FusedObjects) {
+				UpdateMoveableObjectMaterial(Object, true);
+			}
 		}
+		return PrevMoveableObject;
 	}
 
-	// If no moveable objects are nearby, clear current fuse object's overlay material and return null
-	if (FuseMesh && FuseMesh->MeshComponent->GetOverlayMaterial() != nullptr) {
-		RemoveMoveableItemMaterial(FuseMesh);
-	}
 	return nullptr;
 }
 
 // Update material of nearby fuseable object
-void AMoveableObject::UpdateMoveableItemMaterial(AMoveableObject* MoveableMesh)
+void AMoveableObject::UpdateMoveableObjectMaterial(AMoveableObject* MoveableMesh, bool Fuseable)
 {
-	if (MoveableMesh->Mat != nullptr) {
-		MoveableDynamicMat = UMaterialInstanceDynamic::Create(MoveableMesh->Mat, MeshComponent);
-		MoveableDynamicMat->SetScalarParameterValue("Fuseable", 1.f);
-		MoveableMesh->MeshComponent->SetOverlayMaterial(MoveableDynamicMat);
-	}
+	if (!MoveableMesh || !MoveableMesh->Mat || !MoveableMesh->MeshComponent) return;
+
+	MoveableMesh->DynamicMat = UMaterialInstanceDynamic::Create(MoveableMesh->Mat, MoveableMesh->MeshComponent);
+	MoveableMesh->DynamicMat->SetScalarParameterValue("Fuseable", Fuseable ? 1.f : 0.f);
+	MoveableMesh->MeshComponent->SetOverlayMaterial(MoveableMesh->DynamicMat);
 }
 
 // Remove material of nearby fuseable object
-void AMoveableObject::RemoveMoveableItemMaterial(AMoveableObject* MoveableMesh)
+void AMoveableObject::RemoveMoveableObjectMaterial(AMoveableObject* MoveableMesh)
 {
-	if (MoveableMesh) {
-		MoveableMesh->MeshComponent->SetOverlayMaterial(nullptr);
-	}
+	if (!MoveableMesh || !MoveableMesh->MeshComponent || !MoveableMesh->DynamicMat) return;
+
+	MoveableMesh->MeshComponent->SetOverlayMaterial(nullptr);
+	MoveableMesh->DynamicMat = nullptr;
 }
 
-// Fuse with the nearest fuseable object
+// Fuse current object group with the nearest fuseable object
 void AMoveableObject::FuseMoveableObjects(AMoveableObject* MoveableMesh)
 {
 	// Move nearby fuseable object to be aligned with held object
@@ -182,4 +247,37 @@ void AMoveableObject::FuseMoveableObjects(AMoveableObject* MoveableMesh)
 	PhysicsConstraint->SetAngularTwistLimit(EAngularConstraintMotion::ACM_Locked, 0);
 
 	PhysicsConstraint->SetDisableCollision(true);
+
+	MergeMoveableObjects(MoveableMesh);
+}
+
+// Merge the fused object sets of the currently held object and the one it is fusing with
+void AMoveableObject::MergeMoveableObjects(AMoveableObject* MoveableMesh)
+{
+	// Initialize a new set to hold all fused objects
+	TSet<AMoveableObject*> MergedObjects;
+
+	// Build set from currently existing fused object's sets of the held object and fusing object
+	for (AMoveableObject* Object : FusedObjects)
+	{
+		if (Object) {
+			MergedObjects.Add(Object);
+		}
+	}
+
+	for (AMoveableObject* Object : MoveableMesh->FusedObjects)
+	{
+		if (Object) {
+			MergedObjects.Add(Object);
+		}
+	}
+
+	// Update fused object of every object in the merged group
+	for (AMoveableObject* Object : MergedObjects)
+	{
+		if (Object)
+		{
+			Object->FusedObjects = MergedObjects;
+		}
+	}
 }

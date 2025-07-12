@@ -35,32 +35,40 @@ public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
-	// Create and apply new material instance when obejct is grabbed
+	// When an object is grabbed, add an overlay material
 	virtual void OnGrab_Implementation() override;
 
-	// When the object is released, set its material back to the original
+	// When the object is released, remove overalay material
 	virtual void OnRelease_Implementation() override;
 
 private:
-	// Check for any overlapping moveable (fuseable) objects
+	// Check for any nearby moveable objects
 	UFUNCTION(BlueprintCallable)
 	AMoveableObject* GetMoveableInRadius();
 
-	// Check if there is a grabbable object in sphere trace
+	// Get closest moveable object
 	UFUNCTION(BlueprintCallable)
-	AMoveableObject* GetMoveableItem(TArray<FHitResult> HitResults, FVector TraceOrigin);
+	AMoveableObject* GetMoveableObject(TArray<FHitResult> HitResults, FVector TraceOrigin);
+
+	// Run a line trace to check if nearby moveable object is a valid hit
+	UFUNCTION(BlueprintCallable)
+	AMoveableObject* CheckMoveableObjectTrace(AActor* HitActor, FVector TraceOrigin);
 
 	// Update material of nearby fuseable object
 	UFUNCTION(BlueprintCallable)
-	void UpdateMoveableItemMaterial(AMoveableObject* MoveableMesh);
+	void UpdateMoveableObjectMaterial(AMoveableObject* MoveableMesh, bool Fuseable);
 
 	// Remove material of nearby fuseable object
 	UFUNCTION(BlueprintCallable)
-	void RemoveMoveableItemMaterial(AMoveableObject* MoveableMesh);
+	void RemoveMoveableObjectMaterial(AMoveableObject* MoveableMesh);
 
-	// Fuse with the nearest fuseable object
+	// Fuse current object group with the nearest fuseable object
 	UFUNCTION(BlueprintCallable)
 	void FuseMoveableObjects(AMoveableObject* MoveableMesh);
+
+	// Merge the fused object sets of the currently held object and the one it is fusing with
+	UFUNCTION(BlueprintCallable)
+	void MergeMoveableObjects(AMoveableObject* MoveableMesh);
 
 	// A dynamic material to apply to the current object, allowing for manipulation of parameters
 	UMaterialInstanceDynamic* DynamicMat;
@@ -69,10 +77,14 @@ private:
 	UMaterialInstanceDynamic* MoveableDynamicMat;
 
 	// Current nearby moveable object
-	AMoveableObject* MoveableObject;
+	AMoveableObject* CurrentMoveableObject;
 
 	// Most recent nearby moveable object
-	AMoveableObject* FuseMesh;
+	AMoveableObject* PrevMoveableObject;
 
+	// Track if a moveable object is grabbed or not
 	bool bIsGrabbed = false;
+
+	// Keep track of all fused objects
+	TSet<AMoveableObject*> FusedObjects;
 };
