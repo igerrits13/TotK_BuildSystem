@@ -138,10 +138,7 @@ void UGrabber::Release()
 	// Call OnRelease using the moveable objects interface
 	IMoveableObjectInterface::Execute_OnRelease(PhysicsHandle->GetGrabbedComponent()->GetOwner());
 
-	// Otherwise, wake up the rigid body, remove any velocity from the object and drop the object straight down
-	PhysicsHandle->GetGrabbedComponent()->WakeAllRigidBodies();
-	PhysicsHandle->GetGrabbedComponent()->SetPhysicsLinearVelocity(FVector::ZeroVector);
-	PhysicsHandle->GetGrabbedComponent()->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
+	// Finally, release the component
 	PhysicsHandle->ReleaseComponent();
 }
 

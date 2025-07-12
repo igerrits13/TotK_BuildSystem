@@ -91,6 +91,9 @@ void AMoveableObject::OnRelease_Implementation()
 		FuseMoveableObjects(CurrentMoveableObject);
 	}
 
+	// Set all fused object's velocities to zero
+	RemoveObjectVelocity();
+
 	// Reset previous moveable object
 	PrevMoveableObject = nullptr;
 }
@@ -185,6 +188,16 @@ AMoveableObject* AMoveableObject::CheckMoveableObjectTrace(AActor* HitActor, FVe
 	}
 
 	return nullptr;
+}
+
+// Remove velocities from objects when dropping
+void AMoveableObject::RemoveObjectVelocity()
+{
+	for (AMoveableObject* Object : FusedObjects) {
+		Object->MeshComponent->WakeAllRigidBodies();
+		Object->MeshComponent->SetPhysicsLinearVelocity(FVector::ZeroVector);
+		Object->MeshComponent->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
+	}
 }
 
 // Update material of nearby fuseable object and its currently fused object set

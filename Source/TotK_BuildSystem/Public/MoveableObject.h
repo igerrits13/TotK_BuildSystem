@@ -54,6 +54,10 @@ private:
 	UFUNCTION(BlueprintCallable)
 	AMoveableObject* CheckMoveableObjectTrace(AActor* HitActor, FVector TraceOrigin);
 
+	// Remove velocities from objects when dropping
+	UFUNCTION(BlueprintCallable)
+	void RemoveObjectVelocity();
+
 	// Update material of nearby fuseable object and its currently fused object set
 	UFUNCTION(BlueprintCallable)
 	void UpdateMoveableObjectMaterial(AMoveableObject* MoveableObject, bool Fuseable);
