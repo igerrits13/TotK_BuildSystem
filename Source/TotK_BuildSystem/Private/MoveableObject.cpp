@@ -34,11 +34,7 @@ void AMoveableObject::Tick(float DeltaTime)
 		CurrentMoveableObject = GetMoveableInRadius();
 
 		// Update material for all fused objects based on if there is a nearby moveable object or not
-		for (AMoveableObject* Object : FusedObjects) {
-			if (!Object) continue;
-
-			UpdateMoveableObjectMaterial(Object, CurrentMoveableObject ? true : false);
-		}
+		UpdateMoveableObjectMaterial(this, CurrentMoveableObject ? true : false);
 	}
 }
 
@@ -71,11 +67,10 @@ void AMoveableObject::OnGrab_Implementation()
 		}
 
 		UE_LOG(LogTemp, Warning, TEXT("%s -> %s"), *ObjectName, *fusedNames);
-
-		////////////////////////////////////////////////////////////////////////////////////
-
-		UpdateMoveableObjectMaterial(Object, false);
 	}
+	////////////////////////////////////////////////////////////////////////////////////
+
+	UpdateMoveableObjectMaterial(this, false);
 }
 
 // When the object is released, remove overalay material
@@ -85,22 +80,18 @@ void AMoveableObject::OnRelease_Implementation()
 
 	// Remove material from nearby moveable object and all its fused objects, if one exists
 	if (PrevMoveableObject) {
-		for (AMoveableObject* Object : PrevMoveableObject->FusedObjects) {
-			RemoveMoveableObjectMaterial(Object);
-		}
+		RemoveMoveableObjectMaterial(PrevMoveableObject);
 	}
 
 	// Remove material from the currently held object and all of its fused objects
-	for (AMoveableObject* Object : FusedObjects) {
-		RemoveMoveableObjectMaterial(Object);
-	}
+	RemoveMoveableObjectMaterial(this);
 
 	// If there is a nearby moveable object on release, fuse object groups together
 	if (CurrentMoveableObject != nullptr) {
 		FuseMoveableObjects(CurrentMoveableObject);
 	}
 
-	// Reset previous moveable mesh
+	// Reset previous moveable object
 	PrevMoveableObject = nullptr;
 }
 
@@ -152,9 +143,7 @@ AMoveableObject* AMoveableObject::GetMoveableObject(TArray<FHitResult> HitResult
 
 	// If no moveable objects are nearby, clear current fuse object's overlay material if one exists and return null
 	if (PrevMoveableObject && PrevMoveableObject->MeshComponent->GetOverlayMaterial() != nullptr) {
-		for (AMoveableObject* Object : PrevMoveableObject->FusedObjects) {
-			RemoveMoveableObjectMaterial(Object);
-		}
+		RemoveMoveableObjectMaterial(PrevMoveableObject);
 	}
 
 	return nullptr;
@@ -182,19 +171,15 @@ AMoveableObject* AMoveableObject::CheckMoveableObjectTrace(AActor* HitActor, FVe
 
 	// If there are no blocking objects or no objects between actors, update materials if needed and return moveable object
 	if (!bBlockedHit || TestHit.GetActor() == HitActor) {
-		// If there is a new nearby moveable object or the nearby moveable does not have a overlay material, update the previous moveable mesh and add an overlay material
+		// If there is a new nearby moveable object or the nearby moveable does not have a overlay material, update the previous moveable object and add an overlay material
 		if (NearbyMoveable != PrevMoveableObject || NearbyMoveable->MeshComponent->GetOverlayMaterial() == nullptr) {
 			// If the previous nearby moveable object still has a overlay material, remove it
 			if (PrevMoveableObject && PrevMoveableObject->MeshComponent->GetOverlayMaterial() != nullptr) {
-				for (AMoveableObject* Object : PrevMoveableObject->FusedObjects) {
-					RemoveMoveableObjectMaterial(Object);
-				}
+				RemoveMoveableObjectMaterial(PrevMoveableObject);
 			}
 			PrevMoveableObject = NearbyMoveable;
 			// Update materials for all fused objects of the nearby moveable object
-			for (AMoveableObject* Object : PrevMoveableObject->FusedObjects) {
-				UpdateMoveableObjectMaterial(Object, true);
-			}
+			UpdateMoveableObjectMaterial(PrevMoveableObject, true);
 		}
 		return PrevMoveableObject;
 	}
@@ -202,40 +187,42 @@ AMoveableObject* AMoveableObject::CheckMoveableObjectTrace(AActor* HitActor, FVe
 	return nullptr;
 }
 
-// Update material of nearby fuseable object
-void AMoveableObject::UpdateMoveableObjectMaterial(AMoveableObject* MoveableMesh, bool Fuseable)
+// Update material of nearby fuseable object and its currently fused object set
+void AMoveableObject::UpdateMoveableObjectMaterial(AMoveableObject* MoveableObject, bool Fuseable)
 {
-	if (!MoveableMesh || !MoveableMesh->Mat || !MoveableMesh->MeshComponent) return;
-
-	MoveableMesh->DynamicMat = UMaterialInstanceDynamic::Create(MoveableMesh->Mat, MoveableMesh->MeshComponent);
-	MoveableMesh->DynamicMat->SetScalarParameterValue("Fuseable", Fuseable ? 1.f : 0.f);
-	MoveableMesh->MeshComponent->SetOverlayMaterial(MoveableMesh->DynamicMat);
+	for (AMoveableObject* Object : MoveableObject->FusedObjects) {
+		if (!Object || !Object->Mat || !Object->MeshComponent) return;
+		Object->DynamicMat = UMaterialInstanceDynamic::Create(Object->Mat, Object->MeshComponent);
+		Object->DynamicMat->SetScalarParameterValue("Fuseable", Fuseable ? 1.f : 0.f);
+		Object->MeshComponent->SetOverlayMaterial(Object->DynamicMat);
+	}
 }
 
-// Remove material of nearby fuseable object
-void AMoveableObject::RemoveMoveableObjectMaterial(AMoveableObject* MoveableMesh)
+// Remove material of nearby fuseable object and its currently fused object set
+void AMoveableObject::RemoveMoveableObjectMaterial(AMoveableObject* MoveableObject)
 {
-	if (!MoveableMesh || !MoveableMesh->MeshComponent || !MoveableMesh->DynamicMat) return;
-
-	MoveableMesh->MeshComponent->SetOverlayMaterial(nullptr);
-	MoveableMesh->DynamicMat = nullptr;
+	for (AMoveableObject* Object : MoveableObject->FusedObjects) {
+		if (!Object || !Object->Mat || !Object->MeshComponent) return;
+		Object->MeshComponent->SetOverlayMaterial(nullptr);
+		Object->DynamicMat = nullptr;
+	}
 }
 
 // Fuse current object group with the nearest fuseable object
-void AMoveableObject::FuseMoveableObjects(AMoveableObject* MoveableMesh)
+void AMoveableObject::FuseMoveableObjects(AMoveableObject* MoveableObject)
 {
 	// Move nearby fuseable object to be aligned with held object
-	FVector HeldCenter = MoveableMesh->GetActorLocation();
+	FVector HeldCenter = MoveableObject->GetActorLocation();
 	FVector ClosestPoint;
 	MeshComponent->GetClosestPointOnCollision(HeldCenter, ClosestPoint);
-	MoveableMesh->SetActorLocation(ClosestPoint);
+	MoveableObject->SetActorLocation(ClosestPoint);
 
 	// Create and setup a physics constraint
 	UPhysicsConstraintComponent* PhysicsConstraint = NewObject<UPhysicsConstraintComponent>(MeshComponent->GetOwner());
 	PhysicsConstraint->RegisterComponent();
 	PhysicsConstraint->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepWorldTransform);
 	PhysicsConstraint->SetWorldLocation(MeshComponent->GetOwner()->GetActorLocation());
-	PhysicsConstraint->SetConstrainedComponents(MeshComponent, NAME_None, MoveableMesh->MeshComponent, NAME_None);
+	PhysicsConstraint->SetConstrainedComponents(MeshComponent, NAME_None, MoveableObject->MeshComponent, NAME_None);
 
 	// Configure allowed motion and rotation
 	PhysicsConstraint->SetLinearXLimit(ELinearConstraintMotion::LCM_Locked, 0);
@@ -248,11 +235,11 @@ void AMoveableObject::FuseMoveableObjects(AMoveableObject* MoveableMesh)
 
 	PhysicsConstraint->SetDisableCollision(true);
 
-	MergeMoveableObjects(MoveableMesh);
+	MergeMoveableObjects(MoveableObject);
 }
 
 // Merge the fused object sets of the currently held object and the one it is fusing with
-void AMoveableObject::MergeMoveableObjects(AMoveableObject* MoveableMesh)
+void AMoveableObject::MergeMoveableObjects(AMoveableObject* MoveableObject)
 {
 	// Initialize a new set to hold all fused objects
 	TSet<AMoveableObject*> MergedObjects;
@@ -265,7 +252,7 @@ void AMoveableObject::MergeMoveableObjects(AMoveableObject* MoveableMesh)
 		}
 	}
 
-	for (AMoveableObject* Object : MoveableMesh->FusedObjects)
+	for (AMoveableObject* Object : MoveableObject->FusedObjects)
 	{
 		if (Object) {
 			MergedObjects.Add(Object);

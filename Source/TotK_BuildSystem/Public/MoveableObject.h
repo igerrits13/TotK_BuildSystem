@@ -54,21 +54,21 @@ private:
 	UFUNCTION(BlueprintCallable)
 	AMoveableObject* CheckMoveableObjectTrace(AActor* HitActor, FVector TraceOrigin);
 
-	// Update material of nearby fuseable object
+	// Update material of nearby fuseable object and its currently fused object set
 	UFUNCTION(BlueprintCallable)
-	void UpdateMoveableObjectMaterial(AMoveableObject* MoveableMesh, bool Fuseable);
+	void UpdateMoveableObjectMaterial(AMoveableObject* MoveableObject, bool Fuseable);
 
-	// Remove material of nearby fuseable object
+	// Remove material of nearby fuseable object and its currently fused object set
 	UFUNCTION(BlueprintCallable)
-	void RemoveMoveableObjectMaterial(AMoveableObject* MoveableMesh);
+	void RemoveMoveableObjectMaterial(AMoveableObject* MoveableObject);
 
 	// Fuse current object group with the nearest fuseable object
 	UFUNCTION(BlueprintCallable)
-	void FuseMoveableObjects(AMoveableObject* MoveableMesh);
+	void FuseMoveableObjects(AMoveableObject* MoveableObject);
 
 	// Merge the fused object sets of the currently held object and the one it is fusing with
 	UFUNCTION(BlueprintCallable)
-	void MergeMoveableObjects(AMoveableObject* MoveableMesh);
+	void MergeMoveableObjects(AMoveableObject* MoveableObject);
 
 	// A dynamic material to apply to the current object, allowing for manipulation of parameters
 	UMaterialInstanceDynamic* DynamicMat;
