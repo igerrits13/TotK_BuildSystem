@@ -26,6 +26,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fuse")
 	float TraceRadius = 150.f;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Debug")
+	bool bDebugMode = true;
+
 
 protected:
 	// Called when the game starts or when spawned

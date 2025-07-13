@@ -43,30 +43,32 @@ void AMoveableObject::OnGrab_Implementation()
 {
 	bIsGrabbed = true;
 
-	// Update material for all fused objects of the currently grabbed object
-	for (AMoveableObject* Object : FusedObjects) {
-		if (!Object) continue;
+	////////////////////////////////////////////////////////////////////////////////////
+	// For debugging - Print out all fused objects
+	if (bDebugMode) {
+		// Update material for all fused objects of the currently grabbed object
+		for (AMoveableObject* Object : FusedObjects) {
+			if (!Object) continue;
 
-		////////////////////////////////////////////////////////////////////////////////////
-		// For debugging - Print out all fused objects
-		FString ObjectName = Object->GetName();
-		FString fusedNames;
+			FString ObjectName = Object->GetName();
+			FString fusedNames;
 
-		for (AMoveableObject* fused : Object->FusedObjects)
-		{
-			if (fused)
+			for (AMoveableObject* fused : Object->FusedObjects)
 			{
-				fusedNames += fused->GetName() + TEXT(", ");
+				if (fused)
+				{
+					fusedNames += fused->GetName() + TEXT(", ");
+				}
 			}
-		}
 
-		// Trim trailing comma
-		if (fusedNames.EndsWith(TEXT(", ")))
-		{
-			fusedNames.LeftChopInline(2);
-		}
+			// Trim trailing comma
+			if (fusedNames.EndsWith(TEXT(", ")))
+			{
+				fusedNames.LeftChopInline(2);
+			}
 
-		UE_LOG(LogTemp, Warning, TEXT("%s -> %s"), *ObjectName, *fusedNames);
+			UE_LOG(LogTemp, Warning, TEXT("%s -> %s"), *ObjectName, *fusedNames);
+		}
 	}
 	////////////////////////////////////////////////////////////////////////////////////
 
@@ -124,17 +126,19 @@ AMoveableObject* AMoveableObject::GetMoveableInRadius()
 
 		////////////////////////////////////////////////////////////////////////////////////
 		// For debugging - Draw grabbed object sphere trace
-		DrawDebugSphere(
-			GetWorld(),
-			TraceOrigin,
-			TraceRadius,
-			16,
-			FColor::Green,
-			false,
-			0,
-			0,
-			1.5f
-		);
+		if (bDebugMode) {
+			DrawDebugSphere(
+				GetWorld(),
+				TraceOrigin,
+				TraceRadius,
+				16,
+				FColor::Green,
+				false,
+				0,
+				0,
+				1.5f
+			);
+		}
 		////////////////////////////////////////////////////////////////////////////////////
 
 		// Get closest moveable object
@@ -160,21 +164,23 @@ AMoveableObject* AMoveableObject::GetMoveableObject(TArray<FHitResult> HitResult
 
 		////////////////////////////////////////////////////////////////////////////////////
 		// For debugging - Draw grabbed object line trace
-		DrawDebugPoint(
-			GetWorld(),
-			HitResult.ImpactPoint,
-			10.f,
-			FColor::Red,
-			false
-		);
+		if (bDebugMode) {
+			DrawDebugPoint(
+				GetWorld(),
+				HitResult.ImpactPoint,
+				10.f,
+				FColor::Red,
+				false
+			);
 
-		DrawDebugLine(
-			GetWorld(),
-			TraceOrigin,
-			HitResult.ImpactPoint,
-			FColor::Yellow,
-			false
-		);
+			DrawDebugLine(
+				GetWorld(),
+				TraceOrigin,
+				HitResult.ImpactPoint,
+				FColor::Yellow,
+				false
+			);
+		}
 		////////////////////////////////////////////////////////////////////////////////////
 
 		// Move to the next actor if current hit is not a valid actor or is not a moveable object
@@ -216,21 +222,23 @@ AMoveableObject* AMoveableObject::CheckMoveableObjectTrace(AActor* HitActor, FVe
 
 	////////////////////////////////////////////////////////////////////////////////////
 	// For debugging - Draw grabbed object line trace
-	DrawDebugPoint(
-		GetWorld(),
-		TestHit.ImpactPoint,
-		10.f,
-		FColor::Purple,
-		false
-	);
+	if (bDebugMode) {
+		DrawDebugPoint(
+			GetWorld(),
+			TestHit.ImpactPoint,
+			10.f,
+			FColor::Purple,
+			false
+		);
 
-	DrawDebugLine(
-		GetWorld(),
-		TraceOrigin,
-		TestHit.ImpactPoint,
-		FColor::Orange,
-		false
-	);
+		DrawDebugLine(
+			GetWorld(),
+			TraceOrigin,
+			TestHit.ImpactPoint,
+			FColor::Orange,
+			false
+		);
+	}
 	////////////////////////////////////////////////////////////////////////////////////
 
 	// If line hit result is an already fused object, return nullptr
