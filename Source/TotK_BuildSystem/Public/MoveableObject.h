@@ -24,7 +24,7 @@ public:
 	UMaterialInterface* Mat;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fuse")
-	float TraceRadius = 350.f;
+	float TraceRadius = 150.f;
 
 
 protected:
@@ -42,7 +42,7 @@ public:
 	virtual void OnRelease_Implementation() override;
 
 private:
-	// Check for any nearby moveable objects
+	//  Check for any nearby moveable objects for each object in the currently held object's fused group
 	UFUNCTION(BlueprintCallable)
 	AMoveableObject* GetMoveableInRadius();
 

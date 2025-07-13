@@ -98,29 +98,54 @@ void AMoveableObject::OnRelease_Implementation()
 	PrevMoveableObject = nullptr;
 }
 
-// Check for any nearby moveable objects
+// Check for any nearby moveable objects for each object in the currently held object's fused group
 AMoveableObject* AMoveableObject::GetMoveableInRadius()
 {
 	if (MeshComponent == nullptr) return nullptr;
 
-	// Initialize variables used for sphere sweep
-	FVector TraceOrigin = MeshComponent->GetOwner()->GetActorLocation();
-	TArray<FHitResult> HitResults;
-	FCollisionQueryParams Params(FName("SweepCheck"), false, MeshComponent->GetOwner());
+	for (AMoveableObject* Object : FusedObjects) {
+		FString ObjectName = Object->GetName();
 
-	// Get all nearby objects within sphere sweep
-	bool bHit = GetWorld()->SweepMultiByChannel(
-		HitResults,
-		TraceOrigin,
-		TraceOrigin,
-		FQuat::Identity,
-		ECC_Visibility,
-		FCollisionShape::MakeSphere(TraceRadius),
-		Params
-	);
+		// Initialize variables used for sphere sweep
+		FVector TraceOrigin = Object->GetActorLocation();
+		TArray<FHitResult> HitResults;
+		FCollisionQueryParams Params(FName("SweepCheck"), false, Object);
 
-	// Get closest moveable object
-	return GetMoveableObject(HitResults, TraceOrigin);
+		// Get all nearby objects within sphere sweep
+		bool bHit = GetWorld()->SweepMultiByChannel(
+			HitResults,
+			TraceOrigin,
+			TraceOrigin,
+			FQuat::Identity,
+			ECC_Visibility,
+			FCollisionShape::MakeSphere(TraceRadius),
+			Params
+		);
+
+		////////////////////////////////////////////////////////////////////////////////////
+		// For debugging - Draw grabbed object sphere trace
+		DrawDebugSphere(
+			GetWorld(),
+			TraceOrigin,
+			TraceRadius,
+			16,
+			FColor::Green,
+			false,
+			0,
+			0,
+			1.5f
+		);
+		////////////////////////////////////////////////////////////////////////////////////
+
+		// Get closest moveable object
+		AMoveableObject* HitResultObject = GetMoveableObject(HitResults, TraceOrigin);
+
+		if (!HitResultObject) continue;
+
+		return HitResultObject;
+	}
+
+	return nullptr;
 }
 
 // Get closest moveable object
@@ -133,8 +158,28 @@ AMoveableObject* AMoveableObject::GetMoveableObject(TArray<FHitResult> HitResult
 	for (const FHitResult& HitResult : HitResults) {
 		AActor* HitActor = HitResult.GetActor();
 
+		////////////////////////////////////////////////////////////////////////////////////
+		// For debugging - Draw grabbed object line trace
+		DrawDebugPoint(
+			GetWorld(),
+			HitResult.ImpactPoint,
+			10.f,
+			FColor::Red,
+			false
+		);
+
+		DrawDebugLine(
+			GetWorld(),
+			TraceOrigin,
+			HitResult.ImpactPoint,
+			FColor::Yellow,
+			false
+		);
+		////////////////////////////////////////////////////////////////////////////////////
+
 		// Move to the next actor if current hit is not a valid actor or is not a moveable object
 		if (!HitActor || !HitActor->IsA(AMoveableObject::StaticClass())) continue;
+
 
 		// Update moveable object based on line trace. If null, continue, otherwise return the nearby moveable object
 		MoveableObject = CheckMoveableObjectTrace(HitActor, TraceOrigin);
@@ -152,7 +197,7 @@ AMoveableObject* AMoveableObject::GetMoveableObject(TArray<FHitResult> HitResult
 	return nullptr;
 }
 
-
+// Run a line trace to check if nearby moveable object is a valid hit
 AMoveableObject* AMoveableObject::CheckMoveableObjectTrace(AActor* HitActor, FVector TraceOrigin)
 {
 	// Initialize variables used for line trace
@@ -163,11 +208,30 @@ AMoveableObject* AMoveableObject::CheckMoveableObjectTrace(AActor* HitActor, FVe
 	// Line trace to see if there are any blocking objects
 	bool bBlockedHit = GetWorld()->LineTraceSingleByChannel(
 		TestHit,
-		TraceOrigin,
 		TargetLocation,
+		TraceOrigin,
 		ECC_Visibility,
 		FCollisionQueryParams(FName("LOSCheck"), false, MeshComponent->GetOwner())
 	);
+
+	////////////////////////////////////////////////////////////////////////////////////
+	// For debugging - Draw grabbed object line trace
+	DrawDebugPoint(
+		GetWorld(),
+		TestHit.ImpactPoint,
+		10.f,
+		FColor::Purple,
+		false
+	);
+
+	DrawDebugLine(
+		GetWorld(),
+		TraceOrigin,
+		TestHit.ImpactPoint,
+		FColor::Orange,
+		false
+	);
+	////////////////////////////////////////////////////////////////////////////////////
 
 	// If line hit result is an already fused object, return nullptr
 	if (FusedObjects.Contains(NearbyMoveable)) return nullptr;
@@ -186,7 +250,6 @@ AMoveableObject* AMoveableObject::CheckMoveableObjectTrace(AActor* HitActor, FVe
 		}
 		return PrevMoveableObject;
 	}
-
 	return nullptr;
 }
 
