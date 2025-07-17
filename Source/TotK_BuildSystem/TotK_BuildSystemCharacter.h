@@ -77,10 +77,8 @@ class ATotK_BuildSystemCharacter : public ACharacter
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	UInputAction* MoveAwayAction;
 
-
 public:
 	ATotK_BuildSystemCharacter();
-
 
 protected:
 
@@ -113,7 +111,6 @@ protected:
 
 	/** Called for moving away input */
 	void MoveAway(const FInputActionValue& value);
-
 
 protected:
 	// APawn interface

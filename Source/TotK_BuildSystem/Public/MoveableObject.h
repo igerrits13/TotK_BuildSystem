@@ -6,6 +6,7 @@
 #include "GameFramework/Actor.h"
 #include "MoveableObjectInterface.h"
 #include "PhysicsEngine/PhysicsConstraintComponent.h"
+#include "Components/BoxComponent.h"
 #include "MoveableObject.generated.h"
 
 UCLASS()
@@ -22,6 +23,9 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mesh")
 	UMaterialInterface* Mat;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Collision")
+	UBoxComponent* FuseCollisionBox;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fuse")
 	float TraceRadius = 150.f;
@@ -51,7 +55,7 @@ private:
 
 	// Get closest moveable object
 	UFUNCTION(BlueprintCallable)
-	AMoveableObject* GetMoveableObject(TArray<FHitResult> HitResults, FVector TraceOrigin);
+	AMoveableObject* GetMoveableObject(TArray<AActor*> HitResults, FVector TraceOrigin);
 
 	// Run a line trace to check if nearby moveable object is a valid hit
 	UFUNCTION(BlueprintCallable)

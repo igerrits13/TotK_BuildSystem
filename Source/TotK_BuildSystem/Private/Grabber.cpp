@@ -90,18 +90,17 @@ void UGrabber::Grab()
 
 	// If there is a valid hit and the object is a moveable object
 	if (GetGrabbableInReach(HitResult, OwnerRotation) && HitResult.GetActor() && HitResult.GetActor()->IsA(AMoveableObject::StaticClass())) {
+		AMoveableObject* MoveableObject = Cast<AMoveableObject>(HitResult.GetActor());
+
 		// Rotate the player towrards the object being picked up
 		GetOwner()->SetActorRotation(OwnerRotation);
 
 		// Get the component being grabbed and wake up rigid bodies
-		UPrimitiveComponent* HitComponent = HitResult.GetComponent();
+		UPrimitiveComponent* HitComponent = MoveableObject->MeshComponent;
 		HitComponent->WakeAllRigidBodies();
 
 		// Call OnGrab using the moveable objects interface
-		AActor* HitActor = HitComponent->GetOwner();
-		if (HitActor && HitActor->Implements<UMoveableObjectInterface>()) {
-			IMoveableObjectInterface::Execute_OnGrab(HitActor);
-		}
+		IMoveableObjectInterface::Execute_OnGrab(MoveableObject);
 
 		// Find information for setting the held objects location and rotation and reset adjusted rotation
 		FVector PlayerLocation = GetOwner()->GetActorLocation();

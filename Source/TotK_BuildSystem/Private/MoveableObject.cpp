@@ -14,6 +14,10 @@ AMoveableObject::AMoveableObject()
 	MeshComponent->SetSimulatePhysics(true);
 	RootComponent = MeshComponent;
 
+	// Add the box collider for fusing objects
+	FuseCollisionBox = CreateDefaultSubobject<UBoxComponent>(TEXT("FuseCollisionBox"));
+	FuseCollisionBox->SetupAttachment(MeshComponent);
+
 	// Initialize the set of fused objects
 	FusedObjects.Add(this);
 }
@@ -28,6 +32,23 @@ void AMoveableObject::BeginPlay()
 void AMoveableObject::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	////////////////////////////////////////////////////////////////////////////////////
+	// For debugging - Draw collision box
+	if (bDebugMode) {
+		DrawDebugBox(
+			GetWorld(),
+			FuseCollisionBox->GetComponentLocation(),
+			FuseCollisionBox->GetScaledBoxExtent(),
+			FuseCollisionBox->GetComponentQuat(),
+			FColor::Red,
+			false,
+			0,
+			0,
+			2.0f   // Line thickness
+		);
+	}
+	////////////////////////////////////////////////////////////////////////////////////
 
 	if (bIsGrabbed) {
 		// Get the closest moveable object if one exists
@@ -106,43 +127,16 @@ AMoveableObject* AMoveableObject::GetMoveableInRadius()
 	if (MeshComponent == nullptr) return nullptr;
 
 	for (AMoveableObject* Object : FusedObjects) {
-		FString ObjectName = Object->GetName();
+		if (!Object->FuseCollisionBox) continue;
 
 		// Initialize variables used for sphere sweep
 		FVector TraceOrigin = Object->GetActorLocation();
-		TArray<FHitResult> HitResults;
-		FCollisionQueryParams Params(FName("SweepCheck"), false, Object);
+		TArray<AActor*> OverlapActors;
 
-		// Get all nearby objects within sphere sweep
-		bool bHit = GetWorld()->SweepMultiByChannel(
-			HitResults,
-			TraceOrigin,
-			TraceOrigin,
-			FQuat::Identity,
-			ECC_Visibility,
-			FCollisionShape::MakeSphere(TraceRadius),
-			Params
-		);
-
-		////////////////////////////////////////////////////////////////////////////////////
-		// For debugging - Draw grabbed object sphere trace
-		if (bDebugMode) {
-			DrawDebugSphere(
-				GetWorld(),
-				TraceOrigin,
-				TraceRadius,
-				16,
-				FColor::Green,
-				false,
-				0,
-				0,
-				1.5f
-			);
-		}
-		////////////////////////////////////////////////////////////////////////////////////
+		Object->FuseCollisionBox->GetOverlappingActors(OverlapActors, AMoveableObject::StaticClass());
 
 		// Get closest moveable object
-		AMoveableObject* HitResultObject = GetMoveableObject(HitResults, TraceOrigin);
+		AMoveableObject* HitResultObject = GetMoveableObject(OverlapActors, TraceOrigin);
 
 		if (!HitResultObject) continue;
 
@@ -153,21 +147,19 @@ AMoveableObject* AMoveableObject::GetMoveableInRadius()
 }
 
 // Get closest moveable object
-AMoveableObject* AMoveableObject::GetMoveableObject(TArray<FHitResult> HitResults, FVector TraceOrigin)
+AMoveableObject* AMoveableObject::GetMoveableObject(TArray<AActor*> OverlapActors, FVector TraceOrigin)
 {
 	// Initialize variable to track nearby moveable object
 	AMoveableObject* MoveableObject;
 
 	// Iterate over all hit results
-	for (const FHitResult& HitResult : HitResults) {
-		AActor* HitActor = HitResult.GetActor();
-
+	for (AActor* Actor : OverlapActors) {
 		////////////////////////////////////////////////////////////////////////////////////
 		// For debugging - Draw grabbed object line trace
 		if (bDebugMode) {
 			DrawDebugPoint(
 				GetWorld(),
-				HitResult.ImpactPoint,
+				Actor->GetActorLocation(),
 				10.f,
 				FColor::Red,
 				false
@@ -176,19 +168,18 @@ AMoveableObject* AMoveableObject::GetMoveableObject(TArray<FHitResult> HitResult
 			DrawDebugLine(
 				GetWorld(),
 				TraceOrigin,
-				HitResult.ImpactPoint,
+				Actor->GetActorLocation(),
 				FColor::Yellow,
 				false
 			);
 		}
 		////////////////////////////////////////////////////////////////////////////////////
 
-		// Move to the next actor if current hit is not a valid actor or is not a moveable object
-		if (!HitActor || !HitActor->IsA(AMoveableObject::StaticClass())) continue;
-
+		// Move to the next actor if current hit is not a valid actor, is not a moveable object or is its own collision box
+		if (!Actor || !Actor->IsA(AMoveableObject::StaticClass()) || Actor == this) continue;
 
 		// Update moveable object based on line trace. If null, continue, otherwise return the nearby moveable object
-		MoveableObject = CheckMoveableObjectTrace(HitActor, TraceOrigin);
+		MoveableObject = CheckMoveableObjectTrace(Actor, TraceOrigin);
 
 		if (MoveableObject == nullptr) continue;
 
@@ -227,7 +218,7 @@ AMoveableObject* AMoveableObject::CheckMoveableObjectTrace(AActor* HitActor, FVe
 			GetWorld(),
 			TestHit.ImpactPoint,
 			10.f,
-			FColor::Purple,
+			FColor::Orange,
 			false
 		);
 
@@ -235,7 +226,7 @@ AMoveableObject* AMoveableObject::CheckMoveableObjectTrace(AActor* HitActor, FVe
 			GetWorld(),
 			TraceOrigin,
 			TestHit.ImpactPoint,
-			FColor::Orange,
+			FColor::Yellow,
 			false
 		);
 	}
