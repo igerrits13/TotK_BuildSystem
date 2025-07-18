@@ -176,7 +176,7 @@ AMoveableObject* AMoveableObject::GetMoveableObject(TArray<AActor*> OverlapActor
 		////////////////////////////////////////////////////////////////////////////////////
 
 		// Move to the next actor if current hit is not a valid actor, is not a moveable object or is its own collision box
-		if (!Actor || !Actor->IsA(AMoveableObject::StaticClass()) || Actor == this) continue;
+		if (!Actor || !Actor->IsA(AMoveableObject::StaticClass()) ||  FusedObjects.Contains(Cast<AMoveableObject>(Actor))) continue;
 
 		// Update moveable object based on line trace. If null, continue, otherwise return the nearby moveable object
 		MoveableObject = CheckMoveableObjectTrace(Actor, TraceOrigin);
@@ -226,7 +226,7 @@ AMoveableObject* AMoveableObject::CheckMoveableObjectTrace(AActor* HitActor, FVe
 			GetWorld(),
 			TraceOrigin,
 			TestHit.ImpactPoint,
-			FColor::Yellow,
+			FColor::Green,
 			false
 		);
 	}
