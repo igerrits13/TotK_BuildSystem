@@ -2,6 +2,7 @@
 
 
 #include "CustomPlayerController.h"
+#include "Grabber.h"
 
 #include "../DebgugHelper.h"
 
@@ -15,6 +16,12 @@ ACustomPlayerController::ACustomPlayerController()
 void ACustomPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
+
+	// Initialize the player character and physics handle
+	PlayerCharacter = Cast<ATotK_BuildSystemCharacter>(GetPawn());
+	if (PlayerCharacter) {
+		PhysicsHandle = PlayerCharacter->FindComponentByClass<UPhysicsHandleComponent>();
+	}
 }
 
 // Called every frame
@@ -22,7 +29,16 @@ void ACustomPlayerController::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
 
-	TrackMouseShake();
+	// If the player character is holding a moveable object, check for mouse shake
+	if (PhysicsHandle && PhysicsHandle->GetGrabbedComponent() != nullptr && PhysicsHandle->GetGrabbedComponent()->GetOwner()->IsA(AMoveableObject::StaticClass())) {
+		HeldObject = Cast<AMoveableObject>(PhysicsHandle->GetGrabbedComponent()->GetOwner());
+		TrackMouseShake();
+	}
+
+	// Otherwise, make sure held object is null
+	else if (HeldObject) {
+		HeldObject = nullptr;
+	}
 }
 
 // Detect mouse shake for breaking apart fused objects
@@ -58,10 +74,10 @@ void ACustomPlayerController::TrackMouseShake()
 		}
 	}
 
-	// If the mouse direction has changed enough, detect shake
+	// If the mouse direction has changed enough, detect shake and split apart fused objects through the interface function
 	if (DirectionChanges >= MaxDirectionChanges) {
-		Debug::Print(TEXT("Shake detected!"));
 		MouseDeltasX.Empty();
 		MouseDeltasY.Empty();
+		IMoveableObjectInterface::Execute_SplitMoveableObjects(HeldObject);
 	}
 }

@@ -14,7 +14,7 @@ class UMoveableObjectInterface : public UInterface
 };
 
 /**
- * Interface for the grabber to interact with moveable objects
+ * Interface for interacting with moveable objects
  */
 class TOTK_BUILDSYSTEM_API IMoveableObjectInterface
 {
@@ -27,4 +27,7 @@ public:
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Moveable Object")
 	void OnRelease();
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Moveable Object")
+	void SplitMoveableObjects();
 };

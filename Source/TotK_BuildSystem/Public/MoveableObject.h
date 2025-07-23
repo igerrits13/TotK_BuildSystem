@@ -9,6 +9,30 @@
 #include "Components/BoxComponent.h"
 #include "MoveableObject.generated.h"
 
+// Physics constraint link for tracking which objects are fused together
+USTRUCT()
+struct FPhysicsConstraintLink
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	UPhysicsConstraintComponent* Constraint;
+
+	UPROPERTY()
+	AMoveableObject* ComponentA;
+
+	UPROPERTY()
+	AMoveableObject* ComponentB;
+
+	// Operator overload for comparing FPhysicsConstraintLinks
+	FORCEINLINE bool operator==(const FPhysicsConstraintLink& Other) const
+	{
+		return Constraint == Other.Constraint &&
+			ComponentA == Other.ComponentA &&
+			ComponentB == Other.ComponentB;
+	}
+};
+
 UCLASS()
 class TOTK_BUILDSYSTEM_API AMoveableObject : public AActor, public IMoveableObjectInterface
 {
@@ -18,18 +42,19 @@ public:
 	// Sets default values for this actor's properties
 	AMoveableObject();
 
+	// Mesh component for the moveable object
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mesh")
 	UStaticMeshComponent* MeshComponent;
 
+	// Material applied to the mesh component
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mesh")
 	UMaterialInterface* Mat;
 
+	// Collision box for detecting objects within a certain rainge
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Collision")
 	UBoxComponent* FuseCollisionBox;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fuse")
-	float TraceRadius = 150.f;
-
+	// Boolean for if debug information should be shown
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Debug")
 	bool bDebugMode = true;
 
@@ -47,6 +72,9 @@ public:
 
 	// When the object is released, remove overalay material
 	virtual void OnRelease_Implementation() override;
+
+	// Split the fused object sets of the currently held object through moveable object interface
+	virtual void SplitMoveableObjects_Implementation() override;
 
 private:
 	//  Check for any nearby moveable objects for each object in the currently held object's fused group
@@ -98,4 +126,13 @@ private:
 
 	// Keep track of all fused objects
 	TSet<AMoveableObject*> FusedObjects;
+
+	// Keep track of all physics constraints created on this object
+	TArray<FPhysicsConstraintLink> PhysicsConstraintLinks;
+
+	// Remove all physics constraints from the held object
+	void RemovePhysicsLink();
+
+	// Update fused object sets based on their physics links
+	void UpdateFusedSet();
 };

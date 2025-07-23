@@ -18,8 +18,9 @@ AMoveableObject::AMoveableObject()
 	FuseCollisionBox = CreateDefaultSubobject<UBoxComponent>(TEXT("FuseCollisionBox"));
 	FuseCollisionBox->SetupAttachment(MeshComponent);
 
-	// Initialize the set of fused objects
+	// Initialize the set of fused objects and physics constraints
 	FusedObjects.Add(this);
+	PhysicsConstraintLinks.Empty();
 }
 
 // Called when the game starts or when spawned
@@ -88,7 +89,51 @@ void AMoveableObject::OnGrab_Implementation()
 				fusedNames.LeftChopInline(2);
 			}
 
-			UE_LOG(LogTemp, Warning, TEXT("%s -> %s"), *ObjectName, *fusedNames);
+			UE_LOG(LogTemp, Warning, TEXT("Fused Objects: %s -> %s"), *ObjectName, *fusedNames);
+		}
+	}
+
+	if (bDebugMode) {
+		TMap<AMoveableObject*, TArray<FString>> ConstraintMap;
+
+		// Group constraints by owning object
+		for (const FPhysicsConstraintLink& Link : PhysicsConstraintLinks)
+		{
+			if (!Link.Constraint) continue;
+
+			auto AddConstraintTo = [&](AMoveableObject* Obj, AMoveableObject* Other)
+				{
+					if (!Obj || !Other) return;
+
+					FString OtherName = Other->GetName();
+					ConstraintMap.FindOrAdd(Obj).Add(OtherName);
+				};
+
+			AddConstraintTo(Link.ComponentA, Link.ComponentB);
+			AddConstraintTo(Link.ComponentB, Link.ComponentA);
+		}
+
+		// Print out each object's constraint links
+		for (const auto& Elem : ConstraintMap)
+		{
+			AMoveableObject* Obj = Elem.Key;
+			const TArray<FString>& LinkedNames = Elem.Value;
+
+			FString Line = Obj ? Obj->GetName() : TEXT("None");
+			Line += TEXT(" -> ");
+
+			for (const FString& Name : LinkedNames)
+			{
+				Line += Name + TEXT(", ");
+			}
+
+			// Trim trailing comma
+			if (Line.EndsWith(TEXT(", ")))
+			{
+				Line.LeftChopInline(2);
+			}
+
+			UE_LOG(LogTemp, Warning, TEXT("Constraint Map: %s"), *Line);
 		}
 	}
 	////////////////////////////////////////////////////////////////////////////////////
@@ -176,7 +221,7 @@ AMoveableObject* AMoveableObject::GetMoveableObject(TArray<AActor*> OverlapActor
 		////////////////////////////////////////////////////////////////////////////////////
 
 		// Move to the next actor if current hit is not a valid actor, is not a moveable object or is its own collision box
-		if (!Actor || !Actor->IsA(AMoveableObject::StaticClass()) ||  FusedObjects.Contains(Cast<AMoveableObject>(Actor))) continue;
+		if (!Actor || !Actor->IsA(AMoveableObject::StaticClass()) || FusedObjects.Contains(Cast<AMoveableObject>(Actor))) continue;
 
 		// Update moveable object based on line trace. If null, continue, otherwise return the nearby moveable object
 		MoveableObject = CheckMoveableObjectTrace(Actor, TraceOrigin);
@@ -310,6 +355,43 @@ void AMoveableObject::FuseMoveableObjects(AMoveableObject* MoveableObject)
 
 	PhysicsConstraint->SetDisableCollision(true);
 
+	// Create a custom link to add to the physics constraints array
+	FPhysicsConstraintLink NewLink;
+	NewLink.Constraint = PhysicsConstraint;
+	NewLink.ComponentA = this;
+	NewLink.ComponentB = MoveableObject;
+	PhysicsConstraintLinks.Add(NewLink);
+	MoveableObject->PhysicsConstraintLinks.Add(NewLink);
+
+	////////////////////////////////////////////////////////////////////////////////////
+	// For debugging - Print out all physics constraints on the current moveable object
+	if (bDebugMode) {
+		for (const FPhysicsConstraintLink& Link : PhysicsConstraintLinks)
+		{
+			if (Link.Constraint)
+			{
+				FString ConstraintName = Link.Constraint->GetName();
+
+				FString CompAName = Link.ComponentA ? Link.ComponentA->GetName() : TEXT("None");
+				FString CompBName = Link.ComponentB ? Link.ComponentB->GetName() : TEXT("None");
+
+				FString ActorAName = Link.ComponentA && Link.ComponentA->GetOwner() ? Link.ComponentA->GetOwner()->GetName() : TEXT("None");
+				FString ActorBName = Link.ComponentB && Link.ComponentB->GetOwner() ? Link.ComponentB->GetOwner()->GetName() : TEXT("None");
+
+				FVector WorldLocation = Link.Constraint->GetComponentLocation();
+
+				Debug::Print(FString::Printf(
+					TEXT("Constraint: %s | CompA: %s (%s) | CompB: %s (%s) | Location: %s"),
+					*ConstraintName,
+					*CompAName, *ActorAName,
+					*CompBName, *ActorBName,
+					*WorldLocation.ToString()
+				));
+			}
+		}
+	}
+	////////////////////////////////////////////////////////////////////////////////////
+
 	MergeMoveableObjects(MoveableObject);
 }
 
@@ -340,6 +422,119 @@ void AMoveableObject::MergeMoveableObjects(AMoveableObject* MoveableObject)
 		if (Object)
 		{
 			Object->FusedObjects = MergedObjects;
+		}
+	}
+}
+
+// Split the fused object sets of the currently held object through moveable object interface
+void AMoveableObject::SplitMoveableObjects_Implementation()
+{
+	/*for (const FPhysicsConstraintLink& Link : PhysicsConstraintLinks) {
+		if (Link.Constraint) {
+			Link.ComponentA->MeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+			Link.ComponentB->MeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+			if (Link.ComponentA == Link.ComponentB) {
+				Link.Constraint->DestroyComponent();
+				continue;
+			}
+			if (Link.ComponentA == this) {
+				Link.ComponentB->PhysicsConstraintLinks.Remove(Link);
+			}
+
+			else {
+				Link.ComponentA->PhysicsConstraintLinks.Remove(Link);
+			}
+
+			Link.Constraint->DestroyComponent();
+		}
+	}*/
+
+	// Remove all physics constraints from the held object
+	RemovePhysicsLink();
+
+	// Clear all fused object sets from all previously fused objects, keeping only the object itself and remove overlay material
+	for (AMoveableObject* Object : FusedObjects) {
+		if (Object && Object != this) {
+			Object->MeshComponent->SetOverlayMaterial(nullptr);
+			Object->DynamicMat = nullptr;
+		}
+	}
+
+	// Clear the fused objects sets, leaving only the object itself
+	for (AMoveableObject* Object : FusedObjects) {
+		if (Object && Object != this) {
+			Object->FusedObjects.Empty();
+			Object->FusedObjects.Add(Object);
+		}
+	}
+
+	// Update fused object sets based on their physics links
+	UpdateFusedSet();
+
+	// Clear physics constraint links of held object
+	PhysicsConstraintLinks.Empty();
+
+	// Remove the current object from all fused object lists
+	RemoveObjectVelocity();
+
+	// Clear fused objects set
+	FusedObjects.Empty();
+	FusedObjects.Add(this);
+}
+
+// Remove all physics constraints from the held object
+void AMoveableObject::RemovePhysicsLink()
+{
+	for (const FPhysicsConstraintLink& Link : PhysicsConstraintLinks) {
+		if (Link.Constraint) {
+			// Re-enable collision on both objects
+			Link.ComponentA->MeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+			Link.ComponentB->MeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+
+			// If components are the same, simply destroy the constraint
+			if (Link.ComponentA == Link.ComponentB) {
+				Link.Constraint->DestroyComponent();
+				continue;
+			}
+
+			// Remove the link from the physics constraint links of the non-held object
+			if (Link.ComponentA == this) {
+				Link.ComponentB->PhysicsConstraintLinks.Remove(Link);
+			}
+
+			else {
+				Link.ComponentA->PhysicsConstraintLinks.Remove(Link);
+			}
+
+			// Destroy the constraint between the two objects
+			Link.Constraint->DestroyComponent();
+		}
+	}
+}
+
+// Update fused object sets based on their physics links
+void AMoveableObject::UpdateFusedSet()
+{
+	for (AMoveableObject* Object : FusedObjects) {
+		if (Object && Object != this) {
+			// Initialize a new set to store all fused objects from each link component
+			TSet<AMoveableObject*> MergedSet;
+
+			// For each object, iterate over all their physics links adding all moveable ojbects within each component's fused object set
+			for (FPhysicsConstraintLink& Link : Object->PhysicsConstraintLinks) {
+				if (Link.ComponentA) {
+					MergedSet.Append(Link.ComponentA->FusedObjects);
+				}
+
+				if (Link.ComponentB) {
+					MergedSet.Append(Link.ComponentB->FusedObjects);
+				}
+
+				// Then iterate over every object in the new merged set, setting it's fused object set to include all connected objects
+				for (AMoveableObject* ObjectMerged : MergedSet) {
+					ObjectMerged->FusedObjects = MergedSet;
+				}
+			}
 		}
 	}
 }

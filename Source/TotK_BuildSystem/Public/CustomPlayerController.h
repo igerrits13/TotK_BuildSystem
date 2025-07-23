@@ -5,13 +5,15 @@
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
 #include "MoveableObject.h"
+#include "TotK_BuildSystem/TotK_BuildSystemCharacter.h"
+#include "PhysicsEngine/PhysicsHandleComponent.h"
 #include "CustomPlayerController.generated.h"
 
 /**
- *
+ * Player controller that detects mouse shake
  */
 UCLASS()
-class TOTK_BUILDSYSTEM_API ACustomPlayerController : public APlayerController
+class TOTK_BUILDSYSTEM_API ACustomPlayerController : public APlayerController, public IMoveableObjectInterface
 {
 	GENERATED_BODY()
 
@@ -42,6 +44,12 @@ private:
 	// Track the movement of the mouse to see if mouse shake has occured
 	UFUNCTION(BlueprintCallable)
 	void TrackMouseShake();
+
+	// Pointer to the player character
+	ATotK_BuildSystemCharacter* PlayerCharacter;
+
+	// Pointer to the player character's physics handle
+	UPhysicsHandleComponent* PhysicsHandle;
 
 	// Reference to the object that is currently held by the player
 	AMoveableObject* HeldObject;
