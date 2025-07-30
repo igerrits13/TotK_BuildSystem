@@ -63,6 +63,20 @@ protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
+	// Keep track of all fused objects
+	TSet<AMoveableObject*> FusedObjects;
+
+	// Keep track of all physics constraints created on this object
+	TArray<FPhysicsConstraintLink> PhysicsConstraintLinks;
+
+	// Fuse current object group with the nearest fuseable object
+	UFUNCTION(BlueprintCallable)
+	virtual void FuseMoveableObjects(AMoveableObject* MoveableObject);
+
+	// Merge the fused object sets of the currently held object and the one it is fusing with
+	UFUNCTION(BlueprintCallable)
+	void MergeMoveableObjects(AMoveableObject* MoveableObject);
+
 public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
@@ -76,7 +90,14 @@ public:
 	// Split the fused object sets of the currently held object through moveable object interface
 	virtual void SplitMoveableObjects_Implementation() override;
 
+	// Helper function to add constraint links
+	void AddConstraintLink(const FPhysicsConstraintLink& Link);
+
 private:
+	// Remove velocities on hit objects if they are another moveable object
+	UFUNCTION()
+	void OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& HitResult);
+
 	//  Check for any nearby moveable objects for each object in the currently held object's fused group
 	UFUNCTION(BlueprintCallable)
 	AMoveableObject* GetMoveableInRadius();
@@ -101,14 +122,6 @@ private:
 	UFUNCTION(BlueprintCallable)
 	void RemoveMoveableObjectMaterial(AMoveableObject* MoveableObject);
 
-	// Fuse current object group with the nearest fuseable object
-	UFUNCTION(BlueprintCallable)
-	void FuseMoveableObjects(AMoveableObject* MoveableObject);
-
-	// Merge the fused object sets of the currently held object and the one it is fusing with
-	UFUNCTION(BlueprintCallable)
-	void MergeMoveableObjects(AMoveableObject* MoveableObject);
-
 	// A dynamic material to apply to the current object, allowing for manipulation of parameters
 	UMaterialInstanceDynamic* DynamicMat;
 
@@ -124,15 +137,13 @@ private:
 	// Track if a moveable object is grabbed or not
 	bool bIsGrabbed = false;
 
-	// Keep track of all fused objects
-	TSet<AMoveableObject*> FusedObjects;
-
-	// Keep track of all physics constraints created on this object
-	TArray<FPhysicsConstraintLink> PhysicsConstraintLinks;
-
 	// Remove all physics constraints from the held object
 	void RemovePhysicsLink();
 
 	// Update fused object sets based on their physics links
 	void UpdateFusedSet();
+
+	// Vectors to store the current velocity of the moveable object
+	FVector PreviousVelocity;
+	FVector PreviousAngularVelocity;
 };

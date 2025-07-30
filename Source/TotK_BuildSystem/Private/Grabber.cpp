@@ -28,7 +28,7 @@ void UGrabber::BeginPlay()
 	// Initialize the physics handle and allow rotation physics
 	PhysicsHandle = GetOwner()->FindComponentByClass<UPhysicsHandleComponent>();
 	PhysicsHandle->bRotationConstrained = false;
-	PhysicsHandle->InterpolationSpeed = 10.f;
+	PhysicsHandle->InterpolationSpeed = 5.f;
 
 	// Vector for offsetting the height of held objects caused by third-person camera
 	CameraOffsetVector = FVector(0.f, 0.f, GetOwner()->GetSimpleCollisionHalfHeight() * 1.5);

@@ -13,5 +13,13 @@ UCLASS()
 class TOTK_BUILDSYSTEM_API AMoveableObject_Beam : public AMoveableObject
 {
 	GENERATED_BODY()
+
+private:
+
+	// Called every frame
+	virtual void Tick(float DeltaTime) override;
+
+	// Fuse current object group with the nearest fuseable object
+	virtual void FuseMoveableObjects(AMoveableObject* MoveableObject) override;
 	
 };

@@ -12,6 +12,8 @@ AMoveableObject::AMoveableObject()
 	// Add the static mesh component
 	MeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MeshComponent"));
 	MeshComponent->SetSimulatePhysics(true);
+	MeshComponent->SetNotifyRigidBodyCollision(true);
+	MeshComponent->OnComponentHit.AddDynamic(this, &AMoveableObject::OnHit);
 	RootComponent = MeshComponent;
 
 	// Add the box collider for fusing objects
@@ -33,6 +35,10 @@ void AMoveableObject::BeginPlay()
 void AMoveableObject::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	// Store the current velocities of the moveable object
+	PreviousVelocity = MeshComponent->GetPhysicsLinearVelocity();
+	PreviousAngularVelocity = MeshComponent->GetPhysicsAngularVelocityInDegrees();
 
 	////////////////////////////////////////////////////////////////////////////////////
 	// For debugging - Draw collision box
@@ -57,6 +63,19 @@ void AMoveableObject::Tick(float DeltaTime)
 
 		// Update material for all fused objects based on if there is a nearby moveable object or not
 		UpdateMoveableObjectMaterial(this, CurrentMoveableObject ? true : false);
+	}
+}
+
+// Remove velocities on hit objects if they are another moveable object
+void AMoveableObject::OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& HitResult)
+{
+	// Only change hit interaction if hitting another moveable object
+	if (OtherActor->IsA(AMoveableObject::StaticClass())) {
+		AMoveableObject* OtherMoveable = Cast<AMoveableObject>(OtherActor);
+		
+		// Keep any velocity that the moveable objects currently have without adding new velocities
+		OtherComp->SetPhysicsLinearVelocity(OtherMoveable->PreviousVelocity);
+		OtherComp->SetPhysicsAngularVelocityInDegrees(OtherMoveable->PreviousAngularVelocity);
 	}
 }
 
@@ -332,9 +351,9 @@ void AMoveableObject::RemoveMoveableObjectMaterial(AMoveableObject* MoveableObje
 void AMoveableObject::FuseMoveableObjects(AMoveableObject* MoveableObject)
 {
 	// Move nearby fuseable object to be aligned with held object
-	FVector HeldCenter = MoveableObject->GetActorLocation();
+	FVector FuseObjectCenter = MoveableObject->GetActorLocation();
 	FVector ClosestPoint;
-	MeshComponent->GetClosestPointOnCollision(HeldCenter, ClosestPoint);
+	MeshComponent->GetClosestPointOnCollision(FuseObjectCenter, ClosestPoint);
 	MoveableObject->SetActorLocation(ClosestPoint);
 
 	// Create and setup a physics constraint
@@ -361,7 +380,7 @@ void AMoveableObject::FuseMoveableObjects(AMoveableObject* MoveableObject)
 	NewLink.ComponentA = this;
 	NewLink.ComponentB = MoveableObject;
 	PhysicsConstraintLinks.Add(NewLink);
-	MoveableObject->PhysicsConstraintLinks.Add(NewLink);
+	MoveableObject->AddConstraintLink(NewLink);
 
 	////////////////////////////////////////////////////////////////////////////////////
 	// For debugging - Print out all physics constraints on the current moveable object
@@ -424,6 +443,12 @@ void AMoveableObject::MergeMoveableObjects(AMoveableObject* MoveableObject)
 			Object->FusedObjects = MergedObjects;
 		}
 	}
+}
+
+// Helper function to add constraint links
+void AMoveableObject::AddConstraintLink(const FPhysicsConstraintLink& Link)
+{
+	PhysicsConstraintLinks.Add(Link);
 }
 
 // Split the fused object sets of the currently held object through moveable object interface

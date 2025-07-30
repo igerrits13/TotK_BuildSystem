@@ -28,16 +28,16 @@ public:
 	float LineTraceOffset = 5.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grab Settings")
-	float MaxGrabDistance = 400.f;
+	float MaxGrabDistance = 600.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grab Settings")
-	float GrabRadius = 100.f;
+	float GrabRadius = 150.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grab Settings")
-	float MinHoldDistance = 250.f;
+	float MinHoldDistance = 300.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grab Settings")
-	float MaxHoldDistance = 650.f;
+	float MaxHoldDistance = 800.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grab Settings")
 	float RotationDegrees = 45.f;
