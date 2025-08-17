@@ -54,6 +54,14 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Collision")
 	UBoxComponent* FuseCollisionBox;
 
+	// Speed that the fused objects will move towards each other
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Collision")
+	float InterpSpeed = 6.f;
+
+	// Tollerance for fusing objects together
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Collision")
+	float FuseTolerance = 0.5f;
+
 	// Boolean for if debug information should be shown
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Debug")
 	bool bDebugMode = true;
@@ -77,6 +85,21 @@ protected:
 	UFUNCTION(BlueprintCallable)
 	void MergeMoveableObjects(AMoveableObject* MoveableObject);
 
+	// Track if the held object is trying to fuse with another object
+	bool bIsFusing;
+
+	// Closest point for fusing the held object to another nearby object
+	FVector HeldClosestFusionPoint;
+
+	// Offset center of held object to closest fusion point
+	FVector HeldLocalOffset;
+
+	// Closest point for fusing the other nearby object to athe held object
+	FVector OtherClosestFusionPoint;
+
+	// Offset center of held object to closest fusion point
+	FVector OtherLocalOffset;
+
 public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
@@ -92,6 +115,9 @@ public:
 
 	// Helper function to add constraint links
 	void AddConstraintLink(const FPhysicsConstraintLink& Link);
+
+	// Current nearby moveable object
+	AMoveableObject* CurrentMoveableObject;
 
 private:
 	// Remove velocities on hit objects if they are another moveable object
@@ -128,8 +154,8 @@ private:
 	// A dynamic material to apply to the nearby moveable object
 	UMaterialInstanceDynamic* MoveableDynamicMat;
 
-	// Current nearby moveable object
-	AMoveableObject* CurrentMoveableObject;
+	//// Current nearby moveable object
+	//AMoveableObject* CurrentMoveableObject;
 
 	// Most recent nearby moveable object
 	AMoveableObject* PrevMoveableObject;

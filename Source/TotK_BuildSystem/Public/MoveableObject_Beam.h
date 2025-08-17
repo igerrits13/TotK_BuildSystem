@@ -7,7 +7,7 @@
 #include "MoveableObject_Beam.generated.h"
 
 /**
- * 
+ *
  */
 UCLASS()
 class TOTK_BUILDSYSTEM_API AMoveableObject_Beam : public AMoveableObject
@@ -21,5 +21,7 @@ private:
 
 	// Fuse current object group with the nearest fuseable object
 	virtual void FuseMoveableObjects(AMoveableObject* MoveableObject) override;
-	
+
+	// Update the physics constraints of the two objects being fused
+	void UpdateConstraints(AMoveableObject* MoveableObject);
 };

@@ -23,6 +23,7 @@ AMoveableObject::AMoveableObject()
 	// Initialize the set of fused objects and physics constraints
 	FusedObjects.Add(this);
 	PhysicsConstraintLinks.Empty();
+	bIsFusing = false;
 }
 
 // Called when the game starts or when spawned
@@ -72,7 +73,7 @@ void AMoveableObject::OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActo
 	// Only change hit interaction if hitting another moveable object
 	if (OtherActor->IsA(AMoveableObject::StaticClass())) {
 		AMoveableObject* OtherMoveable = Cast<AMoveableObject>(OtherActor);
-		
+
 		// Keep any velocity that the moveable objects currently have without adding new velocities
 		OtherComp->SetPhysicsLinearVelocity(OtherMoveable->PreviousVelocity);
 		OtherComp->SetPhysicsAngularVelocityInDegrees(OtherMoveable->PreviousAngularVelocity);
@@ -350,6 +351,8 @@ void AMoveableObject::RemoveMoveableObjectMaterial(AMoveableObject* MoveableObje
 // Fuse current object group with the nearest fuseable object
 void AMoveableObject::FuseMoveableObjects(AMoveableObject* MoveableObject)
 {
+	Debug::Print(TEXT("Running from parent"));
+
 	// Move nearby fuseable object to be aligned with held object
 	FVector FuseObjectCenter = MoveableObject->GetActorLocation();
 	FVector ClosestPoint;

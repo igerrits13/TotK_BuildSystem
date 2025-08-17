@@ -12,19 +12,75 @@
 void AMoveableObject_Beam::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	////////////////////////////////////////////////////////////////////////////////////
+	// For debugging - Print out all physics constraints on the current moveable object
+	if (CurrentMoveableObject != nullptr && bDebugMode) {
+		DrawDebugPoint(
+			GetWorld(),
+			HeldClosestFusionPoint,
+			15.f,
+			FColor::Orange,
+			false, // PersistentLines (true to keep it visible even after duration)
+			0.f
+		);
+
+		DrawDebugPoint(
+			GetWorld(),
+			OtherClosestFusionPoint,
+			15.f,
+			FColor::Yellow,
+			false, // PersistentLines (true to keep it visible even after duration)
+			0.f
+		);
+	}
+	////////////////////////////////////////////////////////////////////////////////////
+
+	// If a nearby moveable object exists, update the losest fusion points on that and the current held object
+	if (CurrentMoveableObject) {
+		FVector HeldFuseObjectCenter = MeshComponent->GetOwner()->GetActorLocation();
+		CurrentMoveableObject->MeshComponent->GetClosestPointOnCollision(HeldFuseObjectCenter, OtherClosestFusionPoint);
+
+		MeshComponent->GetClosestPointOnCollision(OtherClosestFusionPoint, HeldClosestFusionPoint);
+	}
+
+	// If two objects are currently fusing, interpolate the location of the previously held object to move towards the object it is fusing with, joining the two objects at the associated closest points
+	if (CurrentMoveableObject != nullptr && bIsFusing) {
+		// Get the object offset from the center of the held object to the closest point of the held object and adjust the target location based on the offset
+		FVector Offset = HeldClosestFusionPoint - MeshComponent->GetOwner()->GetActorLocation();
+		FVector TargetActorLocation = OtherClosestFusionPoint - Offset;
+
+		Debug::Print(TEXT("Interping"));
+		MeshComponent->GetOwner()->SetActorLocation(FMath::VInterpTo(MeshComponent->GetOwner()->GetActorLocation(), TargetActorLocation, DeltaTime, InterpSpeed));
+
+		// Check the distance between closest points, once they are within the given tolerance, fusion has been completed
+		float Distance = FVector::Dist(HeldClosestFusionPoint, OtherClosestFusionPoint);
+		if (Distance <= FuseTolerance) {
+			Debug::Print(TEXT("Done Interping"));
+			bIsFusing = false;
+			UpdateConstraints(CurrentMoveableObject);
+		}
+	}
 }
 
 // Fuse current object group with the nearest fuseable object
 void AMoveableObject_Beam::FuseMoveableObjects(AMoveableObject* MoveableObject)
 {
-	Debug::Print(TEXT("Running from child class"));
+	Debug::Print(TEXT("Running from child"));
 
-	// Move nearby fuseable object to be aligned with held object
-	FVector FuseObjectCenter = MoveableObject->GetActorLocation();
-	FVector ClosestPoint;
-	MeshComponent->GetClosestPointOnCollision(FuseObjectCenter, ClosestPoint);
-	MoveableObject->SetActorLocation(ClosestPoint);
+	// Calculate closest points between objects
+	FVector HeldFuseObjectCenter = MeshComponent->GetOwner()->GetActorLocation();
+	MoveableObject->MeshComponent->GetClosestPointOnCollision(HeldFuseObjectCenter, OtherClosestFusionPoint);
 
+	MeshComponent->GetClosestPointOnCollision(OtherClosestFusionPoint, HeldClosestFusionPoint);
+
+	// Being fusing in tick function
+	bIsFusing = true;
+}
+
+// Update the physics constraints of the two objects being fused
+void AMoveableObject_Beam::UpdateConstraints(AMoveableObject* MoveableObject)
+{
 	// Create and setup a physics constraint
 	UPhysicsConstraintComponent* PhysicsConstraint = NewObject<UPhysicsConstraintComponent>(MeshComponent->GetOwner());
 	PhysicsConstraint->RegisterComponent();
@@ -49,10 +105,9 @@ void AMoveableObject_Beam::FuseMoveableObjects(AMoveableObject* MoveableObject)
 	NewLink.ComponentA = this;
 	NewLink.ComponentB = MoveableObject;
 	PhysicsConstraintLinks.Add(NewLink);
-	//MoveableObject->PhysicsConstraintLinks.Add(NewLink);
 	MoveableObject->AddConstraintLink(NewLink);
 
-	////////////////////////////////////////////////////////////////////////////////////
+	//////////////////////////////////////////////////////////////////////////////////////
 	// For debugging - Print out all physics constraints on the current moveable object
 	if (bDebugMode) {
 		for (const FPhysicsConstraintLink& Link : PhysicsConstraintLinks)
@@ -79,7 +134,7 @@ void AMoveableObject_Beam::FuseMoveableObjects(AMoveableObject* MoveableObject)
 			}
 		}
 	}
-	////////////////////////////////////////////////////////////////////////////////////
+	//////////////////////////////////////////////////////////////////////////////////////
 
 	MergeMoveableObjects(MoveableObject);
 }
