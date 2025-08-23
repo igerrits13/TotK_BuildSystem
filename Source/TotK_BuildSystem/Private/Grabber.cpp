@@ -121,11 +121,6 @@ void UGrabber::Grab()
 			HitComponent->GetComponentRotation()
 		);
 	}
-
-	// For debugging
-	else if (HitResult.GetActor() && !HitResult.GetActor()->IsA(AMoveableObject::StaticClass())) {
-		Debug::Print(TEXT("Not a moveable object"));
-	}
 }
 
 // Release grabbed item
@@ -152,9 +147,29 @@ bool UGrabber::GetGrabbableInReach(FHitResult& OutHitResult, FRotator& OutOwnerR
 	FVector Start = OwnerLocation;
 	FVector End = Start + GetForwardVector() * MaxGrabDistance + CameraOffsetVector;
 
+	////////////////////////////////////////////////////////////////////////////////////
+	// For debugging - Draw grabbed object line trace
+	if (true) {
+		DrawDebugLine(
+			GetWorld(),
+			Start,
+			End,
+			FColor::Yellow,
+			false,
+			3.f
+		);
+
+		const int32 Steps = 10;
+		for (int32 i = 0; i <= Steps; ++i)
+		{
+			FVector Point = FMath::Lerp(Start, End, i / float(Steps));
+			DrawDebugSphere(GetWorld(), Point, GrabRadius, 8, FColor::Yellow, false, 2.0f);
+		}
+	}
+	////////////////////////////////////////////////////////////////////////////////////
+
 	// Check for collisions with moveable actors
-	FCollisionShape Sphere = FCollisionShape::MakeSphere(GrabRadius);
-	return GetWorld()->SweepSingleByChannel(OutHitResult, Start, End, FQuat::Identity, ECC_GameTraceChannel1, Sphere, Params);
+	return GetWorld()->SweepSingleByChannel(OutHitResult, Start, End, FQuat::Identity, ECC_GameTraceChannel1, FCollisionShape::MakeSphere(GrabRadius), Params);
 }
 
 // Check if the player is currently holding an item

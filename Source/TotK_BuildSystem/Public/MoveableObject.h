@@ -117,6 +117,7 @@ public:
 	void AddConstraintLink(const FPhysicsConstraintLink& Link);
 
 	// Current nearby moveable object
+	UPROPERTY()
 	AMoveableObject* CurrentMoveableObject;
 
 private:

@@ -31,7 +31,7 @@ public:
 	float MaxGrabDistance = 600.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grab Settings")
-	float GrabRadius = 150.f;
+	float GrabRadius = 10.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grab Settings")
 	float MinHoldDistance = 300.f;
