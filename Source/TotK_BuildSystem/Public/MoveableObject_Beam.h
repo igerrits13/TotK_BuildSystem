@@ -24,4 +24,10 @@ private:
 
 	// Update the physics constraints of the two objects being fused
 	void UpdateConstraints(AMoveableObject* MoveableObject);
+
+	// Update the closest collision points on the held object and the nearby fusion object
+	void UpdateCollisionPoints();
+
+	// Move objects being fused together via interpolation over time
+	void InterpFusedObjects(float DeltaTime);
 };

@@ -38,28 +38,12 @@ void AMoveableObject_Beam::Tick(float DeltaTime)
 
 	// If a nearby moveable object exists, update the losest fusion points on that and the current held object
 	if (CurrentMoveableObject) {
-		FVector HeldFuseObjectCenter = MeshComponent->GetOwner()->GetActorLocation();
-		CurrentMoveableObject->MeshComponent->GetClosestPointOnCollision(HeldFuseObjectCenter, OtherClosestFusionPoint);
-
-		MeshComponent->GetClosestPointOnCollision(OtherClosestFusionPoint, HeldClosestFusionPoint);
+		UpdateCollisionPoints();
 	}
 
 	// If two objects are currently fusing, interpolate the location of the previously held object to move towards the object it is fusing with, joining the two objects at the associated closest points
 	if (CurrentMoveableObject != nullptr && bIsFusing) {
-		// Get the object offset from the center of the held object to the closest point of the held object and adjust the target location based on the offset
-		FVector Offset = HeldClosestFusionPoint - MeshComponent->GetOwner()->GetActorLocation();
-		FVector TargetActorLocation = OtherClosestFusionPoint - Offset;
-
-		Debug::Print(TEXT("Interping"));
-		MeshComponent->GetOwner()->SetActorLocation(FMath::VInterpTo(MeshComponent->GetOwner()->GetActorLocation(), TargetActorLocation, DeltaTime, InterpSpeed));
-
-		// Check the distance between closest points, once they are within the given tolerance, fusion has been completed
-		float Distance = FVector::Dist(HeldClosestFusionPoint, OtherClosestFusionPoint);
-		if (Distance <= FuseTolerance) {
-			Debug::Print(TEXT("Done Interping"));
-			bIsFusing = false;
-			UpdateConstraints(CurrentMoveableObject);
-		}
+		InterpFusedObjects(DeltaTime);
 	}
 }
 
@@ -74,7 +58,7 @@ void AMoveableObject_Beam::FuseMoveableObjects(AMoveableObject* MoveableObject)
 
 	MeshComponent->GetClosestPointOnCollision(OtherClosestFusionPoint, HeldClosestFusionPoint);
 
-	// Being fusing in tick function
+	// Begin fusing in tick function
 	bIsFusing = true;
 }
 
@@ -137,4 +121,32 @@ void AMoveableObject_Beam::UpdateConstraints(AMoveableObject* MoveableObject)
 	//////////////////////////////////////////////////////////////////////////////////////
 
 	MergeMoveableObjects(MoveableObject);
+}
+
+// Update the closest collision points on the held object and the nearby fusion object
+void AMoveableObject_Beam::UpdateCollisionPoints()
+{
+	FVector HeldFuseObjectCenter = MeshComponent->GetOwner()->GetActorLocation();
+	CurrentMoveableObject->MeshComponent->GetClosestPointOnCollision(HeldFuseObjectCenter, OtherClosestFusionPoint);
+
+	MeshComponent->GetClosestPointOnCollision(OtherClosestFusionPoint, HeldClosestFusionPoint);
+}
+
+// Move objects being fused together via interpolation over time
+void AMoveableObject_Beam::InterpFusedObjects(float DeltaTime)
+{
+	// Get the object offset from the center of the held object to the closest point of the held object and adjust the target location based on the offset
+	FVector Offset = HeldClosestFusionPoint - MeshComponent->GetOwner()->GetActorLocation();
+	FVector TargetActorLocation = OtherClosestFusionPoint - Offset;
+
+	Debug::Print(TEXT("Interping"));
+	MeshComponent->GetOwner()->SetActorLocation(FMath::VInterpTo(MeshComponent->GetOwner()->GetActorLocation(), TargetActorLocation, DeltaTime, InterpSpeed));
+
+	// Check the distance between closest points, once they are within the given tolerance, fusion has been completed
+	float Distance = FVector::Dist(HeldClosestFusionPoint, OtherClosestFusionPoint);
+	if (Distance <= FuseTolerance) {
+		Debug::Print(TEXT("Done Interping"));
+		bIsFusing = false;
+		UpdateConstraints(CurrentMoveableObject);
+	}
 }
