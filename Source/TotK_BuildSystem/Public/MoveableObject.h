@@ -129,13 +129,19 @@ private:
 	UFUNCTION(BlueprintCallable)
 	AMoveableObject* GetMoveableInRadius();
 
-	// Get closest moveable object
+	// Get current nearby moveable object
 	UFUNCTION(BlueprintCallable)
-	AMoveableObject* GetMoveableObject(TArray<AActor*> HitResults, FVector TraceOrigin);
+	AMoveableObject* GetMoveableObject(AMoveableObject* Object, TArray<AActor*> HitResults, FVector TraceOrigin);
 
 	// Run a line trace to check if nearby moveable object is a valid hit
 	UFUNCTION(BlueprintCallable)
 	AMoveableObject* CheckMoveableObjectTrace(AActor* HitActor, FVector TraceOrigin);
+
+	// Get the closest object to what is currently held
+	AMoveableObject* GetClosestMoveable(AMoveableObject* Held, AMoveableObject* ObjectA, AMoveableObject* ObjectB);
+
+	// Get the distance betwen two moveable objects
+	float GetObjectDistance(AMoveableObject* MoveableA, AMoveableObject* MoveableB);
 
 	// Remove velocities from objects when dropping
 	UFUNCTION(BlueprintCallable)

@@ -191,18 +191,20 @@ AMoveableObject* AMoveableObject::GetMoveableInRadius()
 {
 	if (MeshComponent == nullptr) return nullptr;
 
+	// Get the closest moveable object for each object in the currently held object's fused group
 	for (AMoveableObject* Object : FusedObjects) {
 		if (!Object->FuseCollisionBox) continue;
 
-		// Initialize variables used for sphere sweep
+		// Initialize variables used for sphere sweep and get all overlapping actors
 		FVector TraceOrigin = Object->GetActorLocation();
 		TArray<AActor*> OverlapActors;
 
 		Object->FuseCollisionBox->GetOverlappingActors(OverlapActors, AMoveableObject::StaticClass());
 
-		// Get closest moveable object
-		AMoveableObject* HitResultObject = GetMoveableObject(OverlapActors, TraceOrigin);
+		// Get current nearby moveable object
+		AMoveableObject* HitResultObject = GetMoveableObject(Object, OverlapActors, TraceOrigin);
 
+		// If there is no hit result, continue. Otherwise, add it to the array
 		if (!HitResultObject) continue;
 
 		return HitResultObject;
@@ -211,11 +213,12 @@ AMoveableObject* AMoveableObject::GetMoveableInRadius()
 	return nullptr;
 }
 
-// Get closest moveable object
-AMoveableObject* AMoveableObject::GetMoveableObject(TArray<AActor*> OverlapActors, FVector TraceOrigin)
+// Get current nearby moveable object
+AMoveableObject* AMoveableObject::GetMoveableObject(AMoveableObject* Object, TArray<AActor*> OverlapActors, FVector TraceOrigin)
 {
-	// Initialize variable to track nearby moveable object
-	AMoveableObject* MoveableObject;
+	// Initialize variables to track nearby moveable object and closest moveable object
+	AMoveableObject* CurrActorObject = nullptr;
+	AMoveableObject* MoveableObject = nullptr;
 
 	// Iterate over all hit results
 	for (AActor* Actor : OverlapActors) {
@@ -243,20 +246,55 @@ AMoveableObject* AMoveableObject::GetMoveableObject(TArray<AActor*> OverlapActor
 		// Move to the next actor if current hit is not a valid actor, is not a moveable object or is its own collision box
 		if (!Actor || !Actor->IsA(AMoveableObject::StaticClass()) || FusedObjects.Contains(Cast<AMoveableObject>(Actor))) continue;
 
+		//Debug::Print(TEXT("Checking: :" + Actor->GetName()));
+
 		// Update moveable object based on line trace. If null, continue, otherwise return the nearby moveable object
-		MoveableObject = CheckMoveableObjectTrace(Actor, TraceOrigin);
+		//MoveableObject = CheckMoveableObjectTrace(Actor, TraceOrigin);
 
-		if (MoveableObject == nullptr) continue;
+		// Get the current actor moveable object
+		CurrActorObject = CheckMoveableObjectTrace(Actor, TraceOrigin);
 
+		// If the current actor has no valid hit, continue
+		if (!CurrActorObject) continue;
+
+		// If Moveable Object is null, or is farther away than the current object, update the return moveable object
+		//if (!MoveableObject) {
+		//// Moveable Object will be the currently closest moveable object, CurrActorObject is the current test moveable object, Object is the held moveable object being checked for distance
+		//	// We have held, testA, testB. We want to check held->A, held->B and get the shorter distance, then set that to the MoveableObject
+		//	MoveableObject = CurrActorObject;
+		//}
+
+		// If there is no current moveable object, update it to be the current moveable object being tested
+		if (!MoveableObject) {
+			MoveableObject = CurrActorObject;
+		}
+
+		// Otherwise, update moveable object to be the closest of the tested objects
+		else {
+			MoveableObject = GetClosestMoveable(Object, MoveableObject, CurrActorObject);
+		}
+	}
+
+	if (MoveableObject) {
+		Debug::Print(TEXT("Closest is " + MoveableObject->GetName()));
+		// If the previous movable object is not the current moveable object, update materials and prev movable object accordingly
+		if (PrevMoveableObject != MoveableObject) {
+			if (PrevMoveableObject && PrevMoveableObject->MeshComponent->GetOverlayMaterial() != nullptr) {
+				RemoveMoveableObjectMaterial(PrevMoveableObject);
+			}
+			PrevMoveableObject = MoveableObject;
+			UpdateMoveableObjectMaterial(PrevMoveableObject, true);
+		}
 		return MoveableObject;
 	}
-
-	// If no moveable objects are nearby, clear current fuse object's overlay material if one exists and return null
-	if (PrevMoveableObject && PrevMoveableObject->MeshComponent->GetOverlayMaterial() != nullptr) {
-		RemoveMoveableObjectMaterial(PrevMoveableObject);
+	// If no moveable objects are nearby, remove the previous moveable object's material
+	else {
+		// If no moveable objects are nearby, clear current fuse object's overlay material if one exists and return null
+		if (PrevMoveableObject && PrevMoveableObject->MeshComponent->GetOverlayMaterial() != nullptr) {
+			RemoveMoveableObjectMaterial(PrevMoveableObject);
+		}
+		return nullptr;
 	}
-
-	return nullptr;
 }
 
 // Run a line trace to check if nearby moveable object is a valid hit
@@ -303,18 +341,49 @@ AMoveableObject* AMoveableObject::CheckMoveableObjectTrace(AActor* HitActor, FVe
 	// If there are no blocking objects or no objects between actors, update materials if needed and return moveable object
 	if (!bBlockedHit || TestHit.GetActor() == HitActor) {
 		// If there is a new nearby moveable object or the nearby moveable does not have a overlay material, update the previous moveable object and add an overlay material
-		if (NearbyMoveable != PrevMoveableObject || NearbyMoveable->MeshComponent->GetOverlayMaterial() == nullptr) {
-			// If the previous nearby moveable object still has a overlay material, remove it
-			if (PrevMoveableObject && PrevMoveableObject->MeshComponent->GetOverlayMaterial() != nullptr) {
-				RemoveMoveableObjectMaterial(PrevMoveableObject);
-			}
-			PrevMoveableObject = NearbyMoveable;
-			// Update materials for all fused objects of the nearby moveable object
-			UpdateMoveableObjectMaterial(PrevMoveableObject, true);
-		}
-		return PrevMoveableObject;
+		//if (NearbyMoveable != PrevMoveableObject || NearbyMoveable->MeshComponent->GetOverlayMaterial() == nullptr) {
+		//	// If the previous nearby moveable object still has a overlay material, remove it
+		//	if (PrevMoveableObject && PrevMoveableObject->MeshComponent->GetOverlayMaterial() != nullptr) {
+		//		RemoveMoveableObjectMaterial(PrevMoveableObject);
+		//	}
+		//	PrevMoveableObject = NearbyMoveable;
+		//	// Update materials for all fused objects of the nearby moveable object
+		//	UpdateMoveableObjectMaterial(PrevMoveableObject, true);
+		//}
+		//return PrevMoveableObject;
+		return Cast<AMoveableObject>(HitActor);
 	}
 	return nullptr;
+}
+
+// Get the closest object to what is currently held
+AMoveableObject* AMoveableObject::GetClosestMoveable(AMoveableObject* Held, AMoveableObject* ObjectA, AMoveableObject* ObjectB)
+{
+	// If an object is null, return the other
+	if (ObjectA == nullptr) return ObjectB;
+	if (ObjectB == nullptr) return ObjectA;
+
+	// Compare the distance of each object to the held object and return the closest result
+	float ObjectADist = GetObjectDistance(Held, ObjectA);
+	float ObjectBDist = GetObjectDistance(Held, ObjectB);
+
+	Debug::Print(FString::Printf(TEXT("Distance A for %s to %s: %f"), *Held->GetName(), *ObjectA->GetName(), ObjectADist));
+	Debug::Print(FString::Printf(TEXT("Distance B for %s to %s: %f"), *Held->GetName(), *ObjectB->GetName(), ObjectBDist));
+
+	// If object A's distance to the held object is shorter than or equal to object B's distance, return object A
+	if (ObjectADist <= ObjectBDist) {
+		return ObjectA;
+	}
+	// Otherwise return object B
+	else {
+		return ObjectB;
+	}
+}
+
+// Get the distance betwen two moveable objects
+float AMoveableObject::GetObjectDistance(AMoveableObject* MoveableA, AMoveableObject* MoveableB)
+{
+	return FVector::Distance(MoveableA->GetActorLocation(), MoveableB->GetActorLocation());
 }
 
 // Remove velocities from objects when dropping
