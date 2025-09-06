@@ -18,7 +18,7 @@ public:
 	// Setup using the custom game mode
 	ACustomGameMode();
 
-protected:
+private:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
