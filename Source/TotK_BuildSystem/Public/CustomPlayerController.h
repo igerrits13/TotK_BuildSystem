@@ -34,22 +34,16 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grabbable")
 	float ShakeThreshold = 0.1f;
 
-private:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
 	// Called every frame
 	virtual void Tick(float DeltaSeconds) override;
 
+private:
 	// Track the movement of the mouse to see if mouse shake has occured
 	UFUNCTION(BlueprintCallable)
 	void TrackMouseShake();
-
-	// Add x and y deltas to buffers, removing oldest data if buffer is full
-	void UpdateBuffers(float MouseX, float MouseY);
-
-	// Count the total number of changes in mouse direction movement
-	int CountMovementChanges();
 
 	// Pointer to the player character
 	ATotK_BuildSystemCharacter* PlayerCharacter;

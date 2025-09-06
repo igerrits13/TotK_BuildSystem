@@ -1,6 +1,5 @@
 #pragma once
 
-// Helper namespace for printing debug logs to the screen and the console
 namespace Debug
 {
 	static void Print(const FString& Msg, const FColor& Color = FColor::MakeRandomColor(), int32 InKey = -1)

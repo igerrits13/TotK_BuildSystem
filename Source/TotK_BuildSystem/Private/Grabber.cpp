@@ -5,13 +5,18 @@
 #include "Engine/World.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "DrawDebugHelpers.h"
+#include "MoveableObject.h"
 
 #include "../DebgugHelper.h"
 
 // Sets default values for this component's properties
 UGrabber::UGrabber()
 {
+	// Set this component to be initialized when the game starts, and to be ticked every frame.  You can turn these features
+	// off to improve performance if you don't need them.
 	PrimaryComponentTick.bCanEverTick = true;
+
+	// ...
 }
 
 
@@ -38,95 +43,113 @@ void UGrabber::TickComponent(float DeltaTime, ELevelTick TickType, FActorCompone
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	// Do nothing if there is no valid physics handle or held object
+	// Do nothing if there is no valid physics handle or held item
 	if (PhysicsHandle == nullptr || PhysicsHandle->GetGrabbedComponent() == nullptr) return;
 
-	// Update the held object's location and rotation as well as the rotation of the player
-	UpdateHeldObjectLocationAndRotation();
-	UpdatePlayerRotation();
-}
+	// Debugging lines for testing
+	DrawDebugDirectionalArrow(GetWorld(), PhysicsHandle->GetGrabbedComponent()->GetComponentLocation(), PhysicsHandle->GetGrabbedComponent()->GetComponentLocation() + PhysicsHandle->GetGrabbedComponent()->GetForwardVector() * 100, 20, FColor::Green, false);
+	FVector Start = PhysicsHandle->GetGrabbedComponent()->GetComponentLocation();
+	FRotator LookAtRotation = UKismetMathLibrary::FindLookAtRotation(Start, GetOwner()->GetActorLocation());
+	FVector Direction = LookAtRotation.Vector();
+	FVector End = Start + (Direction * 100.0f);
+	DrawDebugDirectionalArrow(GetWorld(), Start, End, 10, FColor::Purple, false, 0.f, 0, 2.f);
 
-// Update the location and rotation of the held object
-void UGrabber::UpdateHeldObjectLocationAndRotation()
-{
-	// Store the location of the player and where the held object should be located
+	// Store the location of the player and where the held object should be held at
 	FVector PlayerLocation = GetOwner()->GetActorLocation();
 	FVector TargetLocation = GetOwner()->GetActorLocation() + GetForwardVector() * CurrentHoldDistance + CameraOffsetVector;
 
-	// Store the rotation that the object should have and combine with the overall rotation applied by the player
-	FRotator LookAtRotation = UKismetMathLibrary::FindLookAtRotation(TargetLocation, PlayerLocation);
-	FRotator AdjustedLookAtRotation = FRotator(0.f, LookAtRotation.Yaw, 0.f);
-	FQuat FinalQuat = FQuat(AdjustedLookAtRotation) * AdjustedRotation;
+	// Store the rotation orientation that the object should have and combine with the overall rotation applied by the player
+	FRotator LookAtRot = UKismetMathLibrary::FindLookAtRotation(TargetLocation, PlayerLocation);
+	FRotator AdjustedLookAtRot = FRotator(0.f, LookAtRot.Yaw, 0.f);
+	FQuat FinalQuat = FQuat(AdjustedLookAtRot) * AdjustedRotation;
 
 	// Set the location and rotation of the held object
 	PhysicsHandle->SetTargetLocationAndRotation(TargetLocation, FinalQuat.Rotator());
 
-	////////////////////////////////////////////////////////////////////////////////////
-	// For debugging - Draw debug lines for the held object
-	if (bDebugMode) {
-		// Draw arrow towards owner of the physics handle from the held object
-		DrawDebugDirectionalArrow(GetWorld(), PhysicsHandle->GetGrabbedComponent()->GetComponentLocation(), PhysicsHandle->GetGrabbedComponent()->GetComponentLocation() + PhysicsHandle->GetGrabbedComponent()->GetForwardVector() * 100, 20, FColor::Green, false);
-		FVector Start = PhysicsHandle->GetGrabbedComponent()->GetComponentLocation();
-		FRotator DebugLookAtRotation = UKismetMathLibrary::FindLookAtRotation(Start, GetOwner()->GetActorLocation());
-		FVector Direction = DebugLookAtRotation.Vector();
-		FVector End = Start + (Direction * 100.0f);
-		DrawDebugDirectionalArrow(GetWorld(), Start, End, 10, FColor::Purple, false, 0.f, 0, 2.f);
+	DrawDebugLine(GetWorld(), TargetLocation, TargetLocation + FinalQuat.GetRightVector() * 100, FColor::Red);
+	DrawDebugLine(GetWorld(), TargetLocation, TargetLocation + FinalQuat.GetUpVector() * 100, FColor::Green);
+	DrawDebugLine(GetWorld(), TargetLocation, TargetLocation + FinalQuat.GetForwardVector() * 100, FColor::Blue);
 
-		// Draw lines up, right and forward for the held object
-		DrawDebugLine(GetWorld(), TargetLocation, TargetLocation + FinalQuat.GetRightVector() * 100, FColor::Red);
-		DrawDebugLine(GetWorld(), TargetLocation, TargetLocation + FinalQuat.GetUpVector() * 100, FColor::Green);
-		DrawDebugLine(GetWorld(), TargetLocation, TargetLocation + FinalQuat.GetForwardVector() * 100, FColor::Blue);
-	}
-	////////////////////////////////////////////////////////////////////////////////////
-}
-
-// Update the rotation of the player to look at the currently held object
-void UGrabber::UpdatePlayerRotation()
-{
+	// Initialize variable to store hit result from out parameter and rotation in respect to where the object being picked up is at
 	FVector OwnerLocation;
 	FRotator OwnerRotation;
 
-	// Rotate the player towards where the camera is facing
 	GetOwner()->GetActorEyesViewPoint(OwnerLocation, OwnerRotation);
 	GetOwner()->SetActorRotation(FRotator(0, OwnerRotation.Yaw, 0));
 }
 
-// Grab item if there is one avaliable
+// Grab item if able
 void UGrabber::Grab()
 {
-	// Check to make sure there is a valid owner and physics handle
+	// Exit if there is no valid owner or physics handle
 	if (!GetOwner() || PhysicsHandle == nullptr) return;
 
 	// Initialize variable to store hit result and rotation in respect to where the object being picked up is at
 	FHitResult HitResult;
 	FRotator OwnerRotation;
 
-	// If there is a valid hit and the object is a moveable object, grab the moveable object
+	// If there is a valid hit and the object is a moveable object
 	if (GetGrabbableInReach(HitResult, OwnerRotation) && HitResult.GetActor() && HitResult.GetActor()->IsA(AMoveableObject::StaticClass())) {
 		AMoveableObject* MoveableObject = Cast<AMoveableObject>(HitResult.GetActor());
 
 		// Rotate the player towrards the object being picked up
 		GetOwner()->SetActorRotation(OwnerRotation);
 
-		// Setup the initial location and rotation of the grabbed object
-		GrabObject(MoveableObject);
+		// Get the component being grabbed and wake up rigid bodies
+		UPrimitiveComponent* HitComponent = MoveableObject->MeshComponent;
+		HitComponent->WakeAllRigidBodies();
+
+		// Call OnGrab using the moveable objects interface
+		IMoveableObjectInterface::Execute_OnGrab(MoveableObject);
+
+		// Find information for setting the held objects location and rotation and reset adjusted rotation
+		FVector PlayerLocation = GetOwner()->GetActorLocation();
+		FVector ObjectLocation = HitComponent->GetComponentLocation();
+		CurrentHoldDistance = FVector::Dist(PlayerLocation, ObjectLocation);
+		AdjustedRotation = FQuat::Identity;
+
+		// Make sure the object is not held too closely
+		if (CurrentHoldDistance < MinHoldDistance) {
+			CurrentHoldDistance = MinHoldDistance;
+		}
+
+		// Grab the object with its current location and rotation
+		PhysicsHandle->GrabComponentAtLocationWithRotation(
+			HitComponent,
+			NAME_None,
+			ObjectLocation,
+			HitComponent->GetComponentRotation()
+		);
 	}
+}
+
+// Release grabbed item
+void UGrabber::Release()
+{
+	// Exit if there is no valid physics handle or no held object
+	if (PhysicsHandle == nullptr || PhysicsHandle->GetGrabbedComponent() == nullptr) return;
+
+	// Call OnRelease using the moveable objects interface
+	IMoveableObjectInterface::Execute_OnRelease(PhysicsHandle->GetGrabbedComponent()->GetOwner());
+
+	// Finally, release the component
+	PhysicsHandle->ReleaseComponent();
 }
 
 // Check if there is a grabbable object and return if there is
 bool UGrabber::GetGrabbableInReach(FHitResult& OutHitResult, FRotator& OutOwnerRotation) const
 {
-	// Initialize values for character's location and rotation
+	// Setup and set values for variables to store rotation and location
 	FVector OwnerLocation;
 	GetOwner()->GetActorEyesViewPoint(OwnerLocation, OutOwnerRotation);
 
-	// Initialize vectors for line trace start and end
+	// Create a line trace between character and endpoint where character can reach
 	FVector Start = OwnerLocation;
 	FVector End = Start + GetForwardVector() * MaxGrabDistance + CameraOffsetVector;
 
 	////////////////////////////////////////////////////////////////////////////////////
-	// For debugging - Draw line trace when trying to grab an object
-	if (bDebugMode) {
+	// For debugging - Draw grabbed object line trace
+	if (true) {
 		DrawDebugLine(
 			GetWorld(),
 			Start,
@@ -147,53 +170,6 @@ bool UGrabber::GetGrabbableInReach(FHitResult& OutHitResult, FRotator& OutOwnerR
 
 	// Check for collisions with moveable actors
 	return GetWorld()->SweepSingleByChannel(OutHitResult, Start, End, FQuat::Identity, ECC_GameTraceChannel1, FCollisionShape::MakeSphere(GrabRadius), Params);
-}
-
-// Grab the object, setting its initial location and rotation
-void UGrabber::GrabObject(AMoveableObject* MoveableObject)
-{
-	// Get the component being grabbed and wake up rigid bodies
-	UPrimitiveComponent* HitComponent = MoveableObject->MeshComponent;
-	HitComponent->WakeAllRigidBodies();
-
-	// Call OnGrab using the moveable objects interface
-	IMoveableObjectInterface::Execute_OnGrab(MoveableObject);
-
-	// Find information for setting the held objects location and rotation and reset adjusted rotation
-	FVector PlayerLocation = GetOwner()->GetActorLocation();
-	FVector ObjectLocation = HitComponent->GetComponentLocation();
-	CurrentHoldDistance = FVector::Dist(PlayerLocation, ObjectLocation);
-	AdjustedRotation = FQuat::Identity;
-
-	////////////////////////////////
-	// We want to adjust this so we offset from the closest point on collision. So, if we have a beam facing us long way, and the end is the closest collision point, we want to set the distance to minholdingdistance + difference
-	// between hitcomponent location and the closest point. We would likely need to add that to the move towards and away as well
-
-	// Make sure the object is not held too closely
-	if (CurrentHoldDistance < MinHoldDistance) {
-		CurrentHoldDistance = MinHoldDistance;
-	}
-
-	// Grab the object with its current location and rotation
-	PhysicsHandle->GrabComponentAtLocationWithRotation(
-		HitComponent,
-		NAME_None,
-		ObjectLocation,
-		HitComponent->GetComponentRotation()
-	);
-}
-
-// Release the currently grabbed item
-void UGrabber::Release()
-{
-	// Check to make sure there is a valid physics handle with a grabbed object
-	if (PhysicsHandle == nullptr || PhysicsHandle->GetGrabbedComponent() == nullptr) return;
-
-	// Call OnRelease using the moveable objects interface
-	IMoveableObjectInterface::Execute_OnRelease(PhysicsHandle->GetGrabbedComponent()->GetOwner());
-
-	// Release the component
-	PhysicsHandle->ReleaseComponent();
 }
 
 // Check if the player is currently holding an item
