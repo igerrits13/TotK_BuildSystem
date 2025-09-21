@@ -42,9 +42,26 @@ public:
 	// Sets default values for this actor's properties
 	AMoveableObject();
 
+	// Create a new physics constraint to be used with the physics constraint link
+	UPhysicsConstraintComponent* AddPhysicsConstraint(AMoveableObject* MoveableObject);
+
+	// Create a new constraint link and add it to both objects being fused
+	void AddConstraintLink(UPhysicsConstraintComponent* PhysicsConstraint, AMoveableObject* MoveableObject);
+
 	// Mesh component for the moveable object
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mesh")
 	UStaticMeshComponent* MeshComponent;
+
+protected:
+	// Called every frame
+	virtual void Tick(float DeltaTime) override;
+
+	// Fuse current object group with the nearest fuseable object
+	UFUNCTION(BlueprintCallable)
+	virtual void FuseMoveableObjects(AMoveableObject* MoveableObject);
+
+	// Merge the fused object sets of the currently held object and the one it is fusing with
+	void MergeMoveableObjects(AMoveableObject* MoveableObject);
 
 	// Material applied to the mesh component
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mesh")
@@ -66,24 +83,16 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Debug")
 	bool bDebugMode = true;
 
-
-protected:
-	// Called when the game starts or when spawned
-	virtual void BeginPlay() override;
+	// Current nearby moveable object
+	UPROPERTY()
+	AMoveableObject* ClosestNearbyMoveableObject;
 
 	// Keep track of all fused objects
+	UPROPERTY()
 	TSet<AMoveableObject*> FusedObjects;
 
 	// Keep track of all physics constraints created on this object
 	TArray<FPhysicsConstraintLink> PhysicsConstraintLinks;
-
-	// Fuse current object group with the nearest fuseable object
-	UFUNCTION(BlueprintCallable)
-	virtual void FuseMoveableObjects(AMoveableObject* MoveableObject);
-
-	// Merge the fused object sets of the currently held object and the one it is fusing with
-	UFUNCTION(BlueprintCallable)
-	void MergeMoveableObjects(AMoveableObject* MoveableObject);
 
 	// Track if the held object is trying to fuse with another object
 	bool bIsFusing;
@@ -100,9 +109,12 @@ protected:
 	// Offset center of held object to closest fusion point
 	FVector OtherLocalOffset;
 
-public:
-	// Called every frame
-	virtual void Tick(float DeltaTime) override;
+private:
+	// Called when the game starts or when spawned
+	virtual void BeginPlay() override;
+
+	// Update the current velocities of the moveable object
+	void UpdateVelocities();
 
 	// When an object is grabbed, add an overlay material
 	virtual void OnGrab_Implementation() override;
@@ -113,29 +125,19 @@ public:
 	// Split the fused object sets of the currently held object through moveable object interface
 	virtual void SplitMoveableObjects_Implementation() override;
 
-	// Helper function to add constraint links
-	void AddConstraintLink(const FPhysicsConstraintLink& Link);
-
-	// Current nearby moveable object
-	UPROPERTY()
-	AMoveableObject* CurrentMoveableObject;
-
-private:
 	// Remove velocities on hit objects if they are another moveable object
 	UFUNCTION()
 	void OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& HitResult);
 
-	//  Check for any nearby moveable objects for each object in the currently held object's fused group
+	// Get the closest moveable object within the collision range
 	UFUNCTION(BlueprintCallable)
-	AMoveableObject* GetMoveableInRadius();
+	AMoveableObject* GetClosestMoveableObjectInRadius();
 
-	// Get current nearby moveable object
-	UFUNCTION(BlueprintCallable)
-	AMoveableObject* GetMoveableObject(AMoveableObject* Object, TArray<AActor*> HitResults, FVector TraceOrigin);
+	// Get the closest moveable object for the current actor
+	AMoveableObject* GetClosestMoveableObjectByActor(AMoveableObject* Object, TArray<AActor*> HitResults);
 
-	// Run a line trace to check if nearby moveable object is a valid hit
-	UFUNCTION(BlueprintCallable)
-	AMoveableObject* CheckMoveableObjectTrace(AActor* HitActor, FVector TraceOrigin);
+	// Run a line trace to check for a clear path between the hit actor and currently held object
+	AMoveableObject* CheckMoveableObjectTrace(AMoveableObject* HitActor, AMoveableObject* FusedObject);
 
 	// Get the closest object to what is currently held
 	AMoveableObject* GetClosestMoveable(AMoveableObject* Held, AMoveableObject* ObjectA, AMoveableObject* ObjectB);
@@ -144,7 +146,6 @@ private:
 	float GetObjectDistance(AMoveableObject* MoveableA, AMoveableObject* MoveableB);
 
 	// Remove velocities from objects when dropping
-	UFUNCTION(BlueprintCallable)
 	void RemoveObjectVelocity();
 
 	// Update material of nearby fuseable object and its currently fused object set
@@ -156,15 +157,15 @@ private:
 	void RemoveMoveableObjectMaterial(AMoveableObject* MoveableObject);
 
 	// A dynamic material to apply to the current object, allowing for manipulation of parameters
+	UPROPERTY()
 	UMaterialInstanceDynamic* DynamicMat;
 
 	// A dynamic material to apply to the nearby moveable object
+	UPROPERTY()
 	UMaterialInstanceDynamic* MoveableDynamicMat;
 
-	//// Current nearby moveable object
-	//AMoveableObject* CurrentMoveableObject;
-
 	// Most recent nearby moveable object
+	UPROPERTY()
 	AMoveableObject* PrevMoveableObject;
 
 	// Track if a moveable object is grabbed or not
