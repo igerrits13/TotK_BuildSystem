@@ -62,6 +62,39 @@ void AMoveableObject::Tick(float DeltaTime)
 		ClosestNearbyMoveableObject = GetClosestMoveableObjectInRadius();
 		UpdateMoveableObjectMaterial(this, ClosestNearbyMoveableObject ? true : false);
 	}
+
+	////////////////////////////////////////////////////////////////////////////////////
+	// For debugging - Draw collision points for fusing objects
+	if (ClosestNearbyMoveableObject != nullptr && bDebugMode) {
+		DrawDebugPoint(
+			GetWorld(),
+			HeldClosestFusionPoint,
+			15.f,
+			FColor::Orange,
+			false,
+			0.f
+		);
+
+		DrawDebugPoint(
+			GetWorld(),
+			OtherClosestFusionPoint,
+			15.f,
+			FColor::Yellow,
+			false,
+			0.f
+		);
+	}
+	////////////////////////////////////////////////////////////////////////////////////
+
+	// If a nearby moveable object exists, update the closest fusion points on the nearby moveable object and the currently held object
+	if (ClosestNearbyMoveableObject) {
+		UpdateCollisionPoints();
+	}
+
+	// If two objects are currently fusing, interpolate the location of the previously held object to move towards the object it is fusing with, joining the two objects at the associated closest points
+	if (ClosestNearbyMoveableObject != nullptr && bIsFusing) {
+		InterpFusedObjects(DeltaTime);
+	}
 }
 
 // Update the current velocities of the moveable object
@@ -344,6 +377,34 @@ AMoveableObject* AMoveableObject::CheckMoveableObjectTrace(AMoveableObject* Near
 	return nullptr;
 }
 
+// Update the closest collision points on the held object and the nearby fusion object
+void AMoveableObject::UpdateCollisionPoints()
+{
+	FVector HeldFuseObjectCenter = MeshComponent->GetOwner()->GetActorLocation();
+	ClosestNearbyMoveableObject->MeshComponent->GetClosestPointOnCollision(HeldFuseObjectCenter, OtherClosestFusionPoint);
+
+	MeshComponent->GetClosestPointOnCollision(OtherClosestFusionPoint, HeldClosestFusionPoint);
+}
+
+// Move objects being fused together via interpolation over time
+void AMoveableObject::InterpFusedObjects(float DeltaTime)
+{
+	// Get the object offset from the center of the held object to the closest point of the held object and adjust the target location based on the offset
+	FVector Offset = HeldClosestFusionPoint - MeshComponent->GetOwner()->GetActorLocation();
+	FVector TargetActorLocation = OtherClosestFusionPoint - Offset;
+
+	Debug::Print(TEXT("Interping"));
+	MeshComponent->GetOwner()->SetActorLocation(FMath::VInterpTo(MeshComponent->GetOwner()->GetActorLocation(), TargetActorLocation, DeltaTime, InterpSpeed));
+
+	// Check the distance between closest points, once they are within the given tolerance, fusion has been completed
+	float Distance = FVector::Dist(HeldClosestFusionPoint, OtherClosestFusionPoint);
+	if (Distance <= FuseTolerance) {
+		Debug::Print(TEXT("Done Interping"));
+		bIsFusing = false;
+		UpdateConstraints(ClosestNearbyMoveableObject);
+	}
+}
+
 // Get the closest object to what is currently held
 AMoveableObject* AMoveableObject::GetClosestMoveable(AMoveableObject* Held, AMoveableObject* ObjectA, AMoveableObject* ObjectB)
 {
@@ -420,20 +481,26 @@ void AMoveableObject::RemoveMoveableObjectMaterial(AMoveableObject* MoveableObje
 // Fuse current object group with the nearest fuseable object
 void AMoveableObject::FuseMoveableObjects(AMoveableObject* MoveableObject)
 {
-	//////////////////// Move nearby fuseable object to be aligned with held object (snapping, to be replaced by interpolating) //////////////////////////////////////***
-	FVector FuseObjectCenter = MoveableObject->GetActorLocation();
-	FVector ClosestPoint;
-	MeshComponent->GetClosestPointOnCollision(FuseObjectCenter, ClosestPoint);
-	MoveableObject->SetActorLocation(ClosestPoint);
+	// Calculate closest points between objects
+	FVector HeldFuseObjectCenter = MeshComponent->GetOwner()->GetActorLocation();
+	MoveableObject->MeshComponent->GetClosestPointOnCollision(HeldFuseObjectCenter, OtherClosestFusionPoint);
 
-	////////////////////// Create and setup a physics constraint, This will likely need to be updated to include the closes object fusing rather than just mesh component, otherwise objects may cause gaps when splitting apart //////////////////////////////////////***
-	////////////////////// i.e. a->b, a-c fusing, breaking apart b might leave a->c with gap in the middle, when technically b and c fused. Note to test after all fused objects check for fusing  //////////////////////////////////////***
+	MeshComponent->GetClosestPointOnCollision(OtherClosestFusionPoint, HeldClosestFusionPoint);
+
+	// Begin fusing in tick function
+	bIsFusing = true;
+}
+
+// Update the physics constraints of the two objects being fused
+void AMoveableObject::UpdateConstraints(AMoveableObject* MoveableObject)
+{
+	// Create and setup a physics constraint
 	UPhysicsConstraintComponent* PhysicsConstraint = AddPhysicsConstraint(MoveableObject);
 
 	// Create a custom link to add to the physics constraints array
 	AddConstraintLink(PhysicsConstraint, MoveableObject);
 
-	////////////////////////////////////////////////////////////////////////////////////
+	//////////////////////////////////////////////////////////////////////////////////////
 	// For debugging - Print out all physics constraints on the current moveable object
 	if (bDebugMode) {
 		for (const FPhysicsConstraintLink& Link : PhysicsConstraintLinks)
@@ -460,7 +527,7 @@ void AMoveableObject::FuseMoveableObjects(AMoveableObject* MoveableObject)
 			}
 		}
 	}
-	////////////////////////////////////////////////////////////////////////////////////
+	//////////////////////////////////////////////////////////////////////////////////////
 
 	MergeMoveableObjects(MoveableObject);
 }

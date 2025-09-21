@@ -42,12 +42,6 @@ public:
 	// Sets default values for this actor's properties
 	AMoveableObject();
 
-	// Create a new physics constraint to be used with the physics constraint link
-	UPhysicsConstraintComponent* AddPhysicsConstraint(AMoveableObject* MoveableObject);
-
-	// Create a new constraint link and add it to both objects being fused
-	void AddConstraintLink(UPhysicsConstraintComponent* PhysicsConstraint, AMoveableObject* MoveableObject);
-
 	// Mesh component for the moveable object
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mesh")
 	UStaticMeshComponent* MeshComponent;
@@ -55,13 +49,6 @@ public:
 protected:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
-
-	// Fuse current object group with the nearest fuseable object
-	UFUNCTION(BlueprintCallable)
-	virtual void FuseMoveableObjects(AMoveableObject* MoveableObject);
-
-	// Merge the fused object sets of the currently held object and the one it is fusing with
-	void MergeMoveableObjects(AMoveableObject* MoveableObject);
 
 	// Material applied to the mesh component
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mesh")
@@ -77,7 +64,7 @@ protected:
 
 	// Tollerance for fusing objects together
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Collision")
-	float FuseTolerance = 0.5f;
+	float FuseTolerance = 1.f;
 
 	// Boolean for if debug information should be shown
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Debug")
@@ -125,14 +112,6 @@ private:
 	// Split the fused object sets of the currently held object through moveable object interface
 	virtual void SplitMoveableObjects_Implementation() override;
 
-	// Remove velocities on hit objects if they are another moveable object
-	UFUNCTION()
-	void OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& HitResult);
-
-	// Get the closest moveable object within the collision range
-	UFUNCTION(BlueprintCallable)
-	AMoveableObject* GetClosestMoveableObjectInRadius();
-
 	// Get the closest moveable object for the current actor
 	AMoveableObject* GetClosestMoveableObjectByActor(AMoveableObject* Object, TArray<AActor*> HitResults);
 
@@ -142,11 +121,43 @@ private:
 	// Get the closest object to what is currently held
 	AMoveableObject* GetClosestMoveable(AMoveableObject* Held, AMoveableObject* ObjectA, AMoveableObject* ObjectB);
 
+	// Update the closest collision points on the held object and the nearby fusion object
+	void UpdateCollisionPoints();
+
+	// Move objects being fused together via interpolation over time
+	void InterpFusedObjects(float DeltaTime);
+
 	// Get the distance betwen two moveable objects
 	float GetObjectDistance(AMoveableObject* MoveableA, AMoveableObject* MoveableB);
 
 	// Remove velocities from objects when dropping
 	void RemoveObjectVelocity();
+
+	// Update the physics constraints of the two objects being fused
+	void UpdateConstraints(AMoveableObject* MoveableObject);
+
+	// Create a new physics constraint to be used with the physics constraint link
+	UPhysicsConstraintComponent* AddPhysicsConstraint(AMoveableObject* MoveableObject);
+
+	// Create a new constraint link and add it to both objects being fused
+	void AddConstraintLink(UPhysicsConstraintComponent* PhysicsConstraint, AMoveableObject* MoveableObject);
+
+	// Merge the fused object sets of the currently held object and the one it is fusing with
+	void MergeMoveableObjects(AMoveableObject* MoveableObject);
+
+	// Remove all physics constraints from the held object
+	void RemovePhysicsLink();
+
+	// Update fused object sets based on their physics links
+	void UpdateFusedSet();
+
+	// Remove velocities on hit objects if they are another moveable object
+	UFUNCTION()
+	void OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& HitResult);
+
+	// Get the closest moveable object within the collision range
+	UFUNCTION(BlueprintCallable)
+	AMoveableObject* GetClosestMoveableObjectInRadius();
 
 	// Update material of nearby fuseable object and its currently fused object set
 	UFUNCTION(BlueprintCallable)
@@ -155,6 +166,10 @@ private:
 	// Remove material of nearby fuseable object and its currently fused object set
 	UFUNCTION(BlueprintCallable)
 	void RemoveMoveableObjectMaterial(AMoveableObject* MoveableObject);
+
+	// Fuse current object group with the nearest fuseable object
+	UFUNCTION(BlueprintCallable)
+	virtual void FuseMoveableObjects(AMoveableObject* MoveableObject);
 
 	// A dynamic material to apply to the current object, allowing for manipulation of parameters
 	UPROPERTY()
@@ -170,12 +185,6 @@ private:
 
 	// Track if a moveable object is grabbed or not
 	bool bIsGrabbed = false;
-
-	// Remove all physics constraints from the held object
-	void RemovePhysicsLink();
-
-	// Update fused object sets based on their physics links
-	void UpdateFusedSet();
 
 	// Vectors to store the current velocity of the moveable object
 	FVector PreviousVelocity;
