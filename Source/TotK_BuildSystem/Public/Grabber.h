@@ -59,6 +59,10 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Debug")
 	bool bDebugMode = true;
 
+	// Offset for held objects
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grab Settings")
+	float OffsetValue = 1.5f;
+
 	// Maximum distance that the grabber can grab an object from
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grab Settings")
 	float MaxGrabDistance = 600.f;
@@ -69,11 +73,11 @@ protected:
 
 	// Minimum distance an object can be held from
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grab Settings")
-	float MinHoldDistance = 300.f;
+	float MinHoldDistance = 400.f;
 
 	// Maximum distance an object can be held from
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grab Settings")
-	float MaxHoldDistance = 800.f;
+	float MaxHoldDistance = 1200.f;
 
 	// Degrees for each iteration of rotating the held object
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grab Settings")
@@ -110,6 +114,9 @@ private:
 
 	// Current distance that an object is being held at
 	float CurrentHoldDistance;
+
+	// Offset for the distance between the center of an object and its side closest to the player
+	float HoldOffset;
 
 	// Player facing rotation of the held object
 	FRotator HeldRotation;

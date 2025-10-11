@@ -26,7 +26,7 @@ void UGrabber::BeginPlay()
 	PhysicsHandle->InterpolationSpeed = 5.f;
 
 	// Vector for offsetting the height of held objects caused by third-person camera
-	CameraOffsetVector = FVector(0.f, 0.f, GetOwner()->GetSimpleCollisionHalfHeight() * 1.5);
+	CameraOffsetVector = FVector(0.f, 0.f, GetOwner()->GetSimpleCollisionHalfHeight() * OffsetValue);
 
 	// Store parameters to ignore the player when trying to grab
 	Params.AddIgnoredActor(GetOwner());
@@ -159,15 +159,18 @@ void UGrabber::GrabObject(AMoveableObject* MoveableObject)
 	// Call OnGrab using the moveable objects interface
 	IMoveableObjectInterface::Execute_OnGrab(MoveableObject);
 
-	// Find information for setting the held objects location and rotation and reset adjusted rotation
+	// Store the location of the player and held object
 	FVector PlayerLocation = GetOwner()->GetActorLocation();
 	FVector ObjectLocation = HitComponent->GetComponentLocation();
-	CurrentHoldDistance = FVector::Dist(PlayerLocation, ObjectLocation);
-	AdjustedRotation = FQuat::Identity;
 
-	////////////////////////////////
-	// We want to adjust this so we offset from the closest point on collision. So, if we have a beam facing us long way, and the end is the closest collision point, we want to set the distance to minholdingdistance + difference
-	// between hitcomponent location and the closest point. We would likely need to add that to the move towards and away as well
+	// Update the current hold distance to the distance between the player and the held object with an offset of the closest point on the held object to the player
+	FVector OutUnusedVec;
+	float CenterDistance = FVector::Dist(PlayerLocation, ObjectLocation);
+	HoldOffset = CenterDistance - HitComponent->GetClosestPointOnCollision(PlayerLocation, OutUnusedVec);
+	CurrentHoldDistance = CenterDistance + HoldOffset;
+	
+	// Reset the adjusted rotation when picking up a new object
+	AdjustedRotation = FQuat::Identity;
 
 	// Make sure the object is not held too closely
 	if (CurrentHoldDistance < MinHoldDistance) {
