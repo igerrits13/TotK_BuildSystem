@@ -560,17 +560,14 @@ void AMoveableObject::UpdateConstraints(AMoveableObject* MoveableObject)
 	MergeMoveableObjects(MoveableObject);
 }
 
-// Create a new physics constraint to be used with the physics constraint link
+// Create a new physics constraint on the closest moveable object within the held object's fused set to be used with the physics constraint link
 UPhysicsConstraintComponent* AMoveableObject::AddPhysicsConstraint(AMoveableObject* MoveableObject)
 {
-	//////////////////// Create and setup a physics constraint, This will likely need to be updated to include the closes object fusing rather than just mesh component, otherwise objects may cause gaps when splitting apart //////////////////////////////////////***
-	//////////////////// i.e. a->b, a-c fusing, breaking apart b might leave a->c with gap in the middle, when technically b and c fused. Note to test after all fused objects check for fusing  //////////////////////////////////////***
-	UPhysicsConstraintComponent* PhysicsConstraint = NewObject<UPhysicsConstraintComponent>(MeshComponent->GetOwner());
+	UPhysicsConstraintComponent* PhysicsConstraint = NewObject<UPhysicsConstraintComponent>(ClosestFusedMoveableObject->MeshComponent->GetOwner());
 	PhysicsConstraint->RegisterComponent();
-	PhysicsConstraint->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepWorldTransform);
-	//PhysicsConstraint->AttachToComponent(FusingObject->RootComponent, FAttachmentTransformRules::KeepWorldTransform); for example, etc. with mesh component, rathter than this->rootcomponent
-	PhysicsConstraint->SetWorldLocation(MeshComponent->GetOwner()->GetActorLocation());
-	PhysicsConstraint->SetConstrainedComponents(MeshComponent, NAME_None, MoveableObject->MeshComponent, NAME_None);
+	PhysicsConstraint->AttachToComponent(ClosestFusedMoveableObject->RootComponent, FAttachmentTransformRules::KeepWorldTransform);
+	PhysicsConstraint->SetWorldLocation(ClosestFusedMoveableObject->MeshComponent->GetOwner()->GetActorLocation());
+	PhysicsConstraint->SetConstrainedComponents(ClosestFusedMoveableObject->MeshComponent, NAME_None, MoveableObject->MeshComponent, NAME_None);
 
 	// Configure allowed motion and rotation
 	PhysicsConstraint->SetLinearXLimit(ELinearConstraintMotion::LCM_Locked, 0);
@@ -592,9 +589,9 @@ void AMoveableObject::AddConstraintLink(UPhysicsConstraintComponent* PhysicsCons
 {
 	FPhysicsConstraintLink NewLink;
 	NewLink.Constraint = PhysicsConstraint;
-	NewLink.ComponentA = this;
+	NewLink.ComponentA = ClosestFusedMoveableObject;
 	NewLink.ComponentB = MoveableObject;
-	PhysicsConstraintLinks.Add(NewLink);
+	ClosestFusedMoveableObject->PhysicsConstraintLinks.Add(NewLink);
 	MoveableObject->PhysicsConstraintLinks.Add(NewLink);
 }
 
@@ -605,7 +602,7 @@ void AMoveableObject::MergeMoveableObjects(AMoveableObject* MoveableObject)
 	TSet<AMoveableObject*> MergedObjects;
 
 	// Build set from currently existing fused object's sets of the held object and fusing object
-	for (AMoveableObject* Object : FusedObjects) {
+	for (AMoveableObject* Object : ClosestFusedMoveableObject->FusedObjects) {
 		if (Object) {
 			MergedObjects.Add(Object);
 		}
