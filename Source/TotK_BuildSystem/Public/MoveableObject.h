@@ -70,6 +70,10 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Debug")
 	bool bDebugMode = true;
 
+	// Object within the held object's fused group that is closest to the nearby moveable object
+	UPROPERTY()
+	AMoveableObject* ClosestFusedMoveableObject;
+
 	// Current nearby moveable object
 	UPROPERTY()
 	AMoveableObject* ClosestNearbyMoveableObject;
@@ -120,6 +124,9 @@ private:
 
 	// Get the closest object to what is currently held
 	AMoveableObject* GetClosestMoveable(AMoveableObject* Held, AMoveableObject* ObjectA, AMoveableObject* ObjectB);
+
+	// Get the closest objects between two object groups
+	AMoveableObject* GetClosestMoveableofTwo(AMoveableObject* TestFused, AMoveableObject* TestMoveable, AMoveableObject* CurrentBestFused, AMoveableObject* CurrentBestMoveable);
 
 	// Update the closest collision points on the held object and the nearby fusion object
 	void UpdateCollisionPoints();

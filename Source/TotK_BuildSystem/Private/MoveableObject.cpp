@@ -30,6 +30,7 @@ void AMoveableObject::BeginPlay()
 
 	// Initialize the set of fused objects and after this object has been created 
 	FusedObjects.Add(this);
+	ClosestFusedMoveableObject = this;
 }
 
 // Called every frame
@@ -70,7 +71,7 @@ void AMoveableObject::Tick(float DeltaTime)
 			GetWorld(),
 			HeldClosestFusionPoint,
 			15.f,
-			FColor::Orange,
+			FColor::Green,
 			false,
 			0.f
 		);
@@ -79,7 +80,7 @@ void AMoveableObject::Tick(float DeltaTime)
 			GetWorld(),
 			OtherClosestFusionPoint,
 			15.f,
-			FColor::Yellow,
+			FColor::Turquoise,
 			false,
 			0.f
 		);
@@ -222,6 +223,10 @@ void AMoveableObject::OnRelease_Implementation()
 // Get the closest moveable object within the collision range
 AMoveableObject* AMoveableObject::GetClosestMoveableObjectInRadius()
 {
+	// Initialize variable to store the current object and the currently closest object
+	AMoveableObject* HitResultObject = nullptr;
+	AMoveableObject* CurrClosestMoveableObject = nullptr;
+
 	// Get the closest moveable object for each object in the currently held object's fused group
 	for (AMoveableObject* FusedObject : FusedObjects) {
 		// Do not check for collisions if the current object does not have a collision box
@@ -232,15 +237,34 @@ AMoveableObject* AMoveableObject::GetClosestMoveableObjectInRadius()
 		FusedObject->FuseCollisionBox->GetOverlappingActors(OverlapActors, AMoveableObject::StaticClass());
 
 		// Get current nearby moveable object
-		AMoveableObject* HitResultObject = GetClosestMoveableObjectByActor(FusedObject, OverlapActors);
+		HitResultObject = GetClosestMoveableObjectByActor(FusedObject, OverlapActors);
 
 		// If there is no hit result, continue. Otherwise, add it to the array
 		if (!HitResultObject) continue;
 
-		return HitResultObject;
+		// If there is no current closest moveable object, update it to be the most recent hit result
+		if (!CurrClosestMoveableObject) {
+			ClosestFusedMoveableObject = FusedObject;
+			CurrClosestMoveableObject = HitResultObject;
+		}
+
+		// Otherwise, update the closest fused moveable object and the current moveable object to be the closest of the tested objects
+		else CurrClosestMoveableObject = GetClosestMoveableofTwo(FusedObject, HitResultObject, ClosestFusedMoveableObject, CurrClosestMoveableObject);
 	}
 
-	return nullptr;
+
+	// If the previous movable object is not the current moveable object, update prev movable object accordingly. Then update the overlay material and return
+	if (PrevMoveableObject != CurrClosestMoveableObject && CurrClosestMoveableObject != nullptr) {
+		// If there was a previous moveable object, remove the overlay material from it, then update the previous moveable object to be the new closest and add an overlay material
+		if (PrevMoveableObject && PrevMoveableObject->MeshComponent->GetOverlayMaterial() != nullptr) {
+			RemoveMoveableObjectMaterial(PrevMoveableObject);
+		}
+		PrevMoveableObject = CurrClosestMoveableObject;
+		UpdateMoveableObjectMaterial(CurrClosestMoveableObject, true);
+	}
+
+	if (CurrClosestMoveableObject == nullptr && PrevMoveableObject != nullptr) RemoveMoveableObjectMaterial(PrevMoveableObject);
+	return CurrClosestMoveableObject;
 }
 
 // Get the closest moveable object for the current actor
@@ -249,7 +273,7 @@ AMoveableObject* AMoveableObject::GetClosestMoveableObjectByActor(AMoveableObjec
 	// Initialize variables for line trace and to track nearby moveable object and closest moveable object
 	FVector TraceOrigin = FusedObject->GetActorLocation();
 	AMoveableObject* CurrMoveableObject = nullptr;
-	AMoveableObject* ClosestMoveableObject = nullptr;
+	AMoveableObject* CurrClosestMoveableObject = nullptr;
 
 	////////////////////////////////////////////////////////////////////////////////////
 	// For debugging - Print debug information for the current object
@@ -259,14 +283,13 @@ AMoveableObject* AMoveableObject::GetClosestMoveableObjectByActor(AMoveableObjec
 	////////////////////////////////////////////////////////////////////////////////////
 
 	// Iterate over all hit results to get the closest moveable object
-	for (AActor* Actor : OverlapActors) {
+	for (AActor* OverlapActor : OverlapActors) {
 		////////////////////////////////////////////////////////////////////////////////////
 		// For debugging - Print debug information for the current overlapping actor and draw grabbed object line trace
 		if (bDebugMode) {
-			Debug::Print(TEXT("Checking closest as " + Actor->GetName()));
 			DrawDebugPoint(
 				GetWorld(),
-				Actor->GetActorLocation(),
+				OverlapActor->GetActorLocation(),
 				10.f,
 				FColor::Red,
 				false
@@ -275,7 +298,7 @@ AMoveableObject* AMoveableObject::GetClosestMoveableObjectByActor(AMoveableObjec
 			DrawDebugLine(
 				GetWorld(),
 				TraceOrigin,
-				Actor->GetActorLocation(),
+				OverlapActor->GetActorLocation(),
 				FColor::Yellow,
 				false
 			);
@@ -283,49 +306,22 @@ AMoveableObject* AMoveableObject::GetClosestMoveableObjectByActor(AMoveableObjec
 		////////////////////////////////////////////////////////////////////////////////////
 
 		// Move to the next actor if current hit is not a valid actor, is not a moveable object, or actor is an already fused object
-		if (!Actor || !Actor->IsA(AMoveableObject::StaticClass()) || FusedObject->FusedObjects.Contains(Cast<AMoveableObject>(Actor))) continue;
+		if (!OverlapActor || !OverlapActor->IsA(AMoveableObject::StaticClass()) || FusedObject->FusedObjects.Contains(Cast<AMoveableObject>(OverlapActor))) continue;
 
 		// Get the current actor moveable object
-		CurrMoveableObject = CheckMoveableObjectTrace(Cast<AMoveableObject>(Actor), FusedObject);
+		CurrMoveableObject = CheckMoveableObjectTrace(Cast<AMoveableObject>(OverlapActor), FusedObject);
 
 		// If the current actor has no valid hit, continue
 		if (!CurrMoveableObject) continue;
 
 		// If there is no current moveable object, update it to be the current moveable object being tested
-		if (!ClosestMoveableObject) {
-			ClosestMoveableObject = CurrMoveableObject;
-		}
+		if (!CurrClosestMoveableObject) CurrClosestMoveableObject = CurrMoveableObject;
 
 		// Otherwise, update moveable object to be the closest of the tested objects
-		else {
-			ClosestMoveableObject = GetClosestMoveable(FusedObject, ClosestMoveableObject, CurrMoveableObject);
-		}
+		else CurrClosestMoveableObject = GetClosestMoveable(FusedObject, CurrClosestMoveableObject, CurrMoveableObject);
 	}
 
-	// Update the materials for the closest moveable object and return that object if one exists
-	if (ClosestMoveableObject) {
-		Debug::Print(TEXT("Closest is " + ClosestMoveableObject->GetName()));
-		// If the previous movable object is not the current moveable object, update prev movable object accordingly. Then update the overlay material and return
-		if (PrevMoveableObject != ClosestMoveableObject) {
-			// If there was a previous moveable object, remove the overlay material from it, then update the previous moveable object to be the new closest and add an overlay material
-			if (PrevMoveableObject && PrevMoveableObject->MeshComponent->GetOverlayMaterial() != nullptr) {
-				RemoveMoveableObjectMaterial(PrevMoveableObject);
-			}
-			PrevMoveableObject = ClosestMoveableObject;
-		}
-		UpdateMoveableObjectMaterial(PrevMoveableObject, true);
-		return ClosestMoveableObject;
-	}
-
-	// If no moveable objects are nearby, remove the previous moveable object's material if one exists and return null
-	else {
-		Debug::Print(TEXT("No closest"));
-		// If no moveable objects are nearby, clear current fuse object's overlay material if one exists and return null
-		if (PrevMoveableObject && PrevMoveableObject->MeshComponent->GetOverlayMaterial() != nullptr) {
-			RemoveMoveableObjectMaterial(PrevMoveableObject);
-		}
-		return nullptr;
-	}
+	return CurrClosestMoveableObject;
 }
 
 // Run a line trace to check for a clear path between the hit actor and currently held object
@@ -342,7 +338,7 @@ AMoveableObject* AMoveableObject::CheckMoveableObjectTrace(AMoveableObject* Near
 		TraceOrigin,
 		TargetLocation,
 		ECC_Visibility,
-		FCollisionQueryParams(FName("LOSCheck"), false, MeshComponent->GetOwner())
+		FCollisionQueryParams(FName("LOSCheck"), false, FusedObject->MeshComponent->GetOwner())
 	);
 
 	////////////////////////////////////////////////////////////////////////////////////
@@ -380,21 +376,21 @@ AMoveableObject* AMoveableObject::CheckMoveableObjectTrace(AMoveableObject* Near
 // Update the closest collision points on the held object and the nearby fusion object
 void AMoveableObject::UpdateCollisionPoints()
 {
-	FVector HeldFuseObjectCenter = MeshComponent->GetOwner()->GetActorLocation();
+	FVector HeldFuseObjectCenter = ClosestFusedMoveableObject->MeshComponent->GetOwner()->GetActorLocation();
 	ClosestNearbyMoveableObject->MeshComponent->GetClosestPointOnCollision(HeldFuseObjectCenter, OtherClosestFusionPoint);
 
-	MeshComponent->GetClosestPointOnCollision(OtherClosestFusionPoint, HeldClosestFusionPoint);
+	ClosestFusedMoveableObject->MeshComponent->GetClosestPointOnCollision(OtherClosestFusionPoint, HeldClosestFusionPoint);
 }
 
 // Move objects being fused together via interpolation over time
 void AMoveableObject::InterpFusedObjects(float DeltaTime)
 {
 	// Get the object offset from the center of the held object to the closest point of the held object and adjust the target location based on the offset
-	FVector Offset = HeldClosestFusionPoint - MeshComponent->GetOwner()->GetActorLocation();
+	FVector Offset = HeldClosestFusionPoint - ClosestFusedMoveableObject->MeshComponent->GetOwner()->GetActorLocation();
 	FVector TargetActorLocation = OtherClosestFusionPoint - Offset;
 
 	Debug::Print(TEXT("Interping"));
-	MeshComponent->GetOwner()->SetActorLocation(FMath::VInterpTo(MeshComponent->GetOwner()->GetActorLocation(), TargetActorLocation, DeltaTime, InterpSpeed));
+	ClosestFusedMoveableObject->MeshComponent->GetOwner()->SetActorLocation(FMath::VInterpTo(ClosestFusedMoveableObject->MeshComponent->GetOwner()->GetActorLocation(), TargetActorLocation, DeltaTime, InterpSpeed));
 
 	// Check the distance between closest points, once they are within the given tolerance, fusion has been completed
 	float Distance = FVector::Dist(HeldClosestFusionPoint, OtherClosestFusionPoint);
@@ -432,6 +428,38 @@ AMoveableObject* AMoveableObject::GetClosestMoveable(AMoveableObject* Held, AMov
 	// Otherwise return object B
 	else {
 		return ObjectB;
+	}
+}
+
+// Get the closest objects between two object groups
+AMoveableObject* AMoveableObject::GetClosestMoveableofTwo(AMoveableObject* TestFused, AMoveableObject* TestMoveable, AMoveableObject* CurrentBestFused, AMoveableObject* CurrentBestMoveable)
+{
+	// If an object is null, return the other
+	if (TestMoveable == nullptr) return CurrentBestMoveable;
+	if (CurrentBestMoveable == nullptr) return TestMoveable;
+
+	// Compare the distance of each object to the held object and return the closest result
+	float ObjectADist = GetObjectDistance(TestFused, TestMoveable);
+	float ObjectBDist = GetObjectDistance(CurrentBestFused, CurrentBestMoveable);
+
+	////////////////////////////////////////////////////////////////////////////////////
+	// For debugging - Print the distance between objects
+	if (bDebugMode) {
+		Debug::Print(FString::Printf(TEXT("Distance A for %s to %s: %f"), *TestFused->GetName(), *TestMoveable->GetName(), ObjectADist));
+		Debug::Print(FString::Printf(TEXT("Distance B for %s to %s: %f"), *CurrentBestFused->GetName(), *CurrentBestMoveable->GetName(), ObjectBDist));
+	}
+	////////////////////////////////////////////////////////////////////////////////////
+
+	// If object A's distance to the held object is less than or equal to object B's distance, return object A
+	if (ObjectADist <= ObjectBDist) {
+		//RemoveMoveableObjectMaterial(currClosestMo)
+		ClosestFusedMoveableObject = TestFused;
+		return TestMoveable;
+	}
+
+	// Otherwise return object B
+	else {
+		return CurrentBestMoveable;
 	}
 }
 
