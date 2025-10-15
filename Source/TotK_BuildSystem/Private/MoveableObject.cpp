@@ -278,7 +278,7 @@ AMoveableObject* AMoveableObject::GetClosestMoveableObjectByActor(AMoveableObjec
 	////////////////////////////////////////////////////////////////////////////////////
 	// For debugging - Print debug information for the current object
 	if (bDebugMode) {
-		Debug::Print(TEXT("Checking closest for " + FusedObject->GetName()));
+		//Debug::Print(TEXT("Checking closest for " + FusedObject->GetName()));
 	}
 	////////////////////////////////////////////////////////////////////////////////////
 
@@ -389,13 +389,13 @@ void AMoveableObject::InterpFusedObjects(float DeltaTime)
 	FVector Offset = HeldClosestFusionPoint - ClosestFusedMoveableObject->MeshComponent->GetOwner()->GetActorLocation();
 	FVector TargetActorLocation = OtherClosestFusionPoint - Offset;
 
-	Debug::Print(TEXT("Interping"));
+	//Debug::Print(TEXT("Interping"));
 	ClosestFusedMoveableObject->MeshComponent->GetOwner()->SetActorLocation(FMath::VInterpTo(ClosestFusedMoveableObject->MeshComponent->GetOwner()->GetActorLocation(), TargetActorLocation, DeltaTime, InterpSpeed));
 
 	// Check the distance between closest points, once they are within the given tolerance, fusion has been completed
 	float Distance = FVector::Dist(HeldClosestFusionPoint, OtherClosestFusionPoint);
 	if (Distance <= FuseTolerance) {
-		Debug::Print(TEXT("Done Interping"));
+		//Debug::Print(TEXT("Done Interping"));
 		bIsFusing = false;
 		UpdateConstraints(ClosestNearbyMoveableObject);
 	}
@@ -415,8 +415,8 @@ AMoveableObject* AMoveableObject::GetClosestMoveable(AMoveableObject* Held, AMov
 	////////////////////////////////////////////////////////////////////////////////////
 	// For debugging - Print the distance between objects
 	if (bDebugMode) {
-		Debug::Print(FString::Printf(TEXT("Distance A for %s to %s: %f"), *Held->GetName(), *ObjectA->GetName(), ObjectADist));
-		Debug::Print(FString::Printf(TEXT("Distance B for %s to %s: %f"), *Held->GetName(), *ObjectB->GetName(), ObjectBDist));
+		/*Debug::Print(FString::Printf(TEXT("Distance A for %s to %s: %f"), *Held->GetName(), *ObjectA->GetName(), ObjectADist));
+		Debug::Print(FString::Printf(TEXT("Distance B for %s to %s: %f"), *Held->GetName(), *ObjectB->GetName(), ObjectBDist));*/
 	}
 	////////////////////////////////////////////////////////////////////////////////////
 
@@ -445,8 +445,8 @@ AMoveableObject* AMoveableObject::GetClosestMoveableofTwo(AMoveableObject* TestF
 	////////////////////////////////////////////////////////////////////////////////////
 	// For debugging - Print the distance between objects
 	if (bDebugMode) {
-		Debug::Print(FString::Printf(TEXT("Distance A for %s to %s: %f"), *TestFused->GetName(), *TestMoveable->GetName(), ObjectADist));
-		Debug::Print(FString::Printf(TEXT("Distance B for %s to %s: %f"), *CurrentBestFused->GetName(), *CurrentBestMoveable->GetName(), ObjectBDist));
+		/*Debug::Print(FString::Printf(TEXT("Distance A for %s to %s: %f"), *TestFused->GetName(), *TestMoveable->GetName(), ObjectADist));
+		Debug::Print(FString::Printf(TEXT("Distance B for %s to %s: %f"), *CurrentBestFused->GetName(), *CurrentBestMoveable->GetName(), ObjectBDist));*/
 	}
 	////////////////////////////////////////////////////////////////////////////////////
 
@@ -545,13 +545,13 @@ void AMoveableObject::UpdateConstraints(AMoveableObject* MoveableObject)
 
 				FVector WorldLocation = Link.Constraint->GetComponentLocation();
 
-				Debug::Print(FString::Printf(
+				/*Debug::Print(FString::Printf(
 					TEXT("Constraint: %s | CompA: %s (%s) | CompB: %s (%s) | Location: %s"),
 					*ConstraintName,
 					*CompAName, *ActorAName,
 					*CompBName, *ActorBName,
 					*WorldLocation.ToString()
-				));
+				));*/
 			}
 		}
 	}

@@ -53,13 +53,22 @@ void UGrabber::UpdateHeldObjectLocationAndRotation()
 	FVector PlayerLocation = GetOwner()->GetActorLocation();
 	FVector TargetLocation = GetOwner()->GetActorLocation() + GetForwardVector() * CurrentHoldDistance + CameraOffsetVector;
 
-	// Store the rotation that the object should have and combine with the overall rotation applied by the player
-	FRotator LookAtRotation = UKismetMathLibrary::FindLookAtRotation(TargetLocation, PlayerLocation);
+	// Store the quaternion value for the rotation of the held object facing the player
+	FRotator LookAtRotation = UKismetMathLibrary::FindLookAtRotation(PlayerLocation, TargetLocation);
 	FRotator AdjustedLookAtRotation = FRotator(0.f, LookAtRotation.Yaw, 0.f);
-	FQuat FinalQuat = FQuat(AdjustedLookAtRotation) * AdjustedRotation;
+	FQuat AdjustedLookAtQuat = FQuat(AdjustedLookAtRotation);
+	AdjustedLookAtQuat.Normalize();
+
+	// Create the final rotation of the object by applying the offset to hold the original object rotation, then the manually adjusted 
+	// rotation to show player rotations and then the adjust lookat rotation to keep the object facing the player as they turn.
+	FQuat FinalQuat = AdjustedLookAtQuat * AdjustedRotation * OffsetQuat;
+	FinalQuat.Normalize();
 
 	// Set the location and rotation of the held object
 	PhysicsHandle->SetTargetLocationAndRotation(TargetLocation, FinalQuat.Rotator());
+
+	// Print out the initial rotation of the object
+	Debug::Print(FString::Printf(TEXT("Grabbed Rotation: Pitch=%.2f, Yaw=%.2f, Roll=%.2f"), FinalQuat.Rotator().Pitch, FinalQuat.Rotator().Yaw, FinalQuat.Rotator().Roll));
 
 	////////////////////////////////////////////////////////////////////////////////////
 	// For debugging - Draw debug lines for the held object
@@ -163,12 +172,25 @@ void UGrabber::GrabObject(AMoveableObject* MoveableObject)
 	FVector PlayerLocation = GetOwner()->GetActorLocation();
 	FVector ObjectLocation = HitComponent->GetComponentLocation();
 
-	// Update the current hold distance to the distance between the player and the held object with an offset of the closest point on the held object to the player
+	// Update the current hold distance to be the distance between the player and the held object with an offset of the closest point on the held object to the player
 	FVector OutUnusedVec;
 	float CenterDistance = FVector::Dist(PlayerLocation, ObjectLocation);
 	HoldOffset = CenterDistance - HitComponent->GetClosestPointOnCollision(PlayerLocation, OutUnusedVec);
 	CurrentHoldDistance = CenterDistance + HoldOffset;
-	
+
+	// Store the lookat rotation from the player to the object
+	FRotator LookAtRotation = UKismetMathLibrary::FindLookAtRotation(PlayerLocation, ObjectLocation);
+	FRotator AdjustedLookAtRotation(0.f, LookAtRotation.Yaw, 0.f);
+	FQuat AdjustedLookAtQuat = FQuat(AdjustedLookAtRotation);
+
+	// Store the held objects initial rotation
+	FQuat HeldQuat = HitComponent->GetComponentQuat();
+	HeldQuat.Normalize();
+
+	// Store the offset between the look at rotation and the object's initial rotation
+	OffsetQuat = AdjustedLookAtQuat.Inverse() * HeldQuat;
+	OffsetQuat.Normalize();
+
 	// Reset the adjusted rotation when picking up a new object
 	AdjustedRotation = FQuat::Identity;
 
@@ -177,6 +199,10 @@ void UGrabber::GrabObject(AMoveableObject* MoveableObject)
 		CurrentHoldDistance = MinHoldDistance;
 	}
 
+	// Print out the initial rotation of the object
+	Debug::Print(FString::Printf(TEXT("World Rotation: Pitch=%.2f, Yaw=%.2f, Roll=%.2f"), HitComponent->GetComponentRotation().Pitch, HitComponent->GetComponentRotation().Yaw, HitComponent->GetComponentRotation().Roll));
+	Debug::Print(FString::Printf(TEXT("World Relative: Pitch=%.2f, Yaw=%.2f, Roll=%.2f"), HitComponent->GetRelativeRotation().Pitch, HitComponent->GetRelativeRotation().Yaw, HitComponent->GetRelativeRotation().Roll));
+
 	// Grab the object with its current location and rotation
 	PhysicsHandle->GrabComponentAtLocationWithRotation(
 		HitComponent,
@@ -184,6 +210,13 @@ void UGrabber::GrabObject(AMoveableObject* MoveableObject)
 		ObjectLocation,
 		HitComponent->GetComponentRotation()
 	);
+}
+
+FRotator UGrabber::RoundObjectRotation(UPrimitiveComponent* MeshComponent)
+{
+	FRotator ResRotation;
+
+	return ResRotation;
 }
 
 // Release the currently grabbed item
@@ -208,41 +241,28 @@ bool UGrabber::IsHoldingObject()
 // Rotate the currently held object to the left
 void UGrabber::RotateLeft()
 {
-	FQuat FacingQuat = FQuat(FRotator(0.f, HeldRotation.Yaw, 0.f));
-	FVector UpVec = FacingQuat.GetUpVector();
-
-	FQuat DeltaRot = FQuat(UpVec, FMath::DegreesToRadians(RotationDegrees));
+	FQuat DeltaRot = FQuat(FVector(0, 0, 1), FMath::DegreesToRadians(RotationDegrees));
 	AdjustedRotation = DeltaRot * AdjustedRotation;
 }
 
 // Rotate the currently held object to the right
 void UGrabber::RotateRight()
 {
-	FQuat FacingQuat = FQuat(FRotator(0.f, HeldRotation.Yaw, 0.f));
-	FVector UpVec = FacingQuat.GetUpVector();
-
-	FQuat DeltaRot = FQuat(UpVec, FMath::DegreesToRadians(-RotationDegrees));
+	FQuat DeltaRot = FQuat(FVector(0, 0, 1), FMath::DegreesToRadians(-RotationDegrees));
 	AdjustedRotation = DeltaRot * AdjustedRotation;
 }
 
 // Rotate the currently held object up
 void UGrabber::RotateUp()
 {
-	FQuat FacingQuat = FQuat(FRotator(0.f, HeldRotation.Yaw, 0.f));
-	FVector RightVec = FacingQuat.GetRightVector();
-
-	FQuat DeltaRot = FQuat(RightVec, FMath::DegreesToRadians(-RotationDegrees));
+	FQuat DeltaRot = FQuat(FVector(0, 1, 0), FMath::DegreesToRadians(RotationDegrees));
 	AdjustedRotation = DeltaRot * AdjustedRotation;
-
 }
 
 // Rotate the currently held object down
 void UGrabber::RotateDown()
 {
-	FQuat FacingQuat = FQuat(FRotator(0.f, HeldRotation.Yaw, 0.f));
-	FVector RightVec = FacingQuat.GetRightVector();
-
-	FQuat DeltaRot = FQuat(RightVec, FMath::DegreesToRadians(RotationDegrees));
+	FQuat DeltaRot = FQuat(FVector(0, 1, 0), FMath::DegreesToRadians(-RotationDegrees));
 	AdjustedRotation = DeltaRot * AdjustedRotation;
 }
 

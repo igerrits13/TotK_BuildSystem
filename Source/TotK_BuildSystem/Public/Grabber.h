@@ -102,6 +102,9 @@ private:
 	// Grab the object, setting its initial location and rotation
 	void GrabObject(AMoveableObject* MoveableObject);
 
+	// Round off the grabbed object's initial rotation based on the preferred rotation degrees
+	FRotator RoundObjectRotation(UPrimitiveComponent* MeshComponent);
+
 	// Physics handle for moving objects
 	UPROPERTY()
 	UPhysicsHandleComponent* PhysicsHandle;
@@ -118,8 +121,8 @@ private:
 	// Offset for the distance between the center of an object and its side closest to the player
 	float HoldOffset;
 
-	// Player facing rotation of the held object
-	FRotator HeldRotation;
+	// Offset between the rotation when an object is picked up and the facing direction
+	FQuat OffsetQuat;
 
 	// Player adjusted rotation based off of rotating the held object
 	FQuat AdjustedRotation;
