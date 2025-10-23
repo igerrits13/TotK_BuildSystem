@@ -103,7 +103,10 @@ private:
 	void GrabObject(AMoveableObject* MoveableObject);
 
 	// Round off the grabbed object's initial rotation based on the preferred rotation degrees
-	FRotator RoundObjectRotation(UPrimitiveComponent* MeshComponent);
+	FRotator RoundObjectRotation(FRotator HeldRot);
+
+	// Round off the specified pitch, yaw, or roll value
+	float CalculateRotation(float CurrRot, float CurrMod);
 
 	// Physics handle for moving objects
 	UPROPERTY()
@@ -125,5 +128,5 @@ private:
 	FQuat OffsetQuat;
 
 	// Player adjusted rotation based off of rotating the held object
-	FQuat AdjustedRotation;
+	FQuat AdjustedQuat;
 };

@@ -51,24 +51,27 @@ void UGrabber::UpdateHeldObjectLocationAndRotation()
 {
 	// Store the location of the player and where the held object should be located
 	FVector PlayerLocation = GetOwner()->GetActorLocation();
-	FVector TargetLocation = GetOwner()->GetActorLocation() + GetForwardVector() * CurrentHoldDistance + CameraOffsetVector;
+	FVector TargetLocation = PlayerLocation + GetForwardVector() * CurrentHoldDistance + CameraOffsetVector;
 
-	// Store the quaternion value for the rotation of the held object facing the player
-	FRotator LookAtRotation = UKismetMathLibrary::FindLookAtRotation(PlayerLocation, TargetLocation);
+	// Store the quaternion value for the rotation of the held object facing the player. This is backwards due to the way meshes were created in blender, as their forward vector is seemingly backwards
+	FRotator LookAtRotation = UKismetMathLibrary::FindLookAtRotation(TargetLocation, PlayerLocation);
 	FRotator AdjustedLookAtRotation = FRotator(0.f, LookAtRotation.Yaw, 0.f);
 	FQuat AdjustedLookAtQuat = FQuat(AdjustedLookAtRotation);
 	AdjustedLookAtQuat.Normalize();
 
 	// Create the final rotation of the object by applying the offset to hold the original object rotation, then the manually adjusted 
 	// rotation to show player rotations and then the adjust lookat rotation to keep the object facing the player as they turn.
-	FQuat FinalQuat = AdjustedLookAtQuat * AdjustedRotation * OffsetQuat;
+	FQuat FinalQuat = AdjustedLookAtQuat * AdjustedQuat * OffsetQuat;
 	FinalQuat.Normalize();
 
 	// Set the location and rotation of the held object
 	PhysicsHandle->SetTargetLocationAndRotation(TargetLocation, FinalQuat.Rotator());
 
-	// Print out the initial rotation of the object
-	Debug::Print(FString::Printf(TEXT("Grabbed Rotation: Pitch=%.2f, Yaw=%.2f, Roll=%.2f"), FinalQuat.Rotator().Pitch, FinalQuat.Rotator().Yaw, FinalQuat.Rotator().Roll));
+	// Print out the updated vector information each frame
+	Debug::Print(FString::Printf(TEXT("Look at Rotation: Pitch=%.2f, Yaw=%.2f, Roll=%.2f"), AdjustedLookAtRotation.Pitch, AdjustedLookAtRotation.Yaw, AdjustedLookAtRotation.Roll));
+	Debug::Print(FString::Printf(TEXT("Player Added Rotation: Pitch=%.2f, Yaw=%.2f, Roll=%.2f"), FRotator(AdjustedQuat).Pitch, FRotator(AdjustedQuat).Yaw, FRotator(AdjustedQuat).Roll));;
+	Debug::Print(FString::Printf(TEXT("Offset Rotation (difference between look at and held): Pitch=%.2f, Yaw=%.2f, Roll=%.2f"), FRotator(OffsetQuat).Pitch, FRotator(OffsetQuat).Yaw, FRotator(OffsetQuat).Roll));
+	Debug::Print(FString::Printf(TEXT("Final object rotation: Pitch=%.2f, Yaw=%.2f, Roll=%.2f"), FinalQuat.Rotator().Pitch, FinalQuat.Rotator().Yaw, FinalQuat.Rotator().Roll));
 
 	////////////////////////////////////////////////////////////////////////////////////
 	// For debugging - Draw debug lines for the held object
@@ -170,53 +173,107 @@ void UGrabber::GrabObject(AMoveableObject* MoveableObject)
 
 	// Store the location of the player and held object
 	FVector PlayerLocation = GetOwner()->GetActorLocation();
-	FVector ObjectLocation = HitComponent->GetComponentLocation();
+	FVector TargetLocation = HitComponent->GetComponentLocation();
 
 	// Update the current hold distance to be the distance between the player and the held object with an offset of the closest point on the held object to the player
 	FVector OutUnusedVec;
-	float CenterDistance = FVector::Dist(PlayerLocation, ObjectLocation);
+	float CenterDistance = FVector::Dist(PlayerLocation, TargetLocation);
 	HoldOffset = CenterDistance - HitComponent->GetClosestPointOnCollision(PlayerLocation, OutUnusedVec);
 	CurrentHoldDistance = CenterDistance + HoldOffset;
 
-	// Store the lookat rotation from the player to the object
-	FRotator LookAtRotation = UKismetMathLibrary::FindLookAtRotation(PlayerLocation, ObjectLocation);
+	// Store the lookat rotation from the player to the object. This is backwards due to the way meshes were created in blender, as their forward vector is seemingly backwards
+	FRotator LookAtRotation = UKismetMathLibrary::FindLookAtRotation(PlayerLocation + GetForwardVector() * CurrentHoldDistance + CameraOffsetVector, PlayerLocation);
 	FRotator AdjustedLookAtRotation(0.f, LookAtRotation.Yaw, 0.f);
 	FQuat AdjustedLookAtQuat = FQuat(AdjustedLookAtRotation);
+	AdjustedLookAtQuat.Normalize();
 
-	// Store the held objects initial rotation
-	FQuat HeldQuat = HitComponent->GetComponentQuat();
+	// Store the held objects initial rotation when picked up
+	FRotator HeldRotation = HitComponent->GetComponentRotation();
+	FQuat HeldQuat = FQuat(HeldRotation);
 	HeldQuat.Normalize();
 
-	// Store the offset between the look at rotation and the object's initial rotation
+	// Store the offset between the look at rotation and the object's initial rotation, then round it based on set rotation degrees
 	OffsetQuat = AdjustedLookAtQuat.Inverse() * HeldQuat;
+	FRotator OffsetRotator = RoundObjectRotation(FRotator(OffsetQuat));
+	OffsetQuat = FQuat(OffsetRotator);
 	OffsetQuat.Normalize();
 
 	// Reset the adjusted rotation when picking up a new object
-	AdjustedRotation = FQuat::Identity;
+	AdjustedQuat = FQuat::Identity;
 
 	// Make sure the object is not held too closely
 	if (CurrentHoldDistance < MinHoldDistance) {
 		CurrentHoldDistance = MinHoldDistance;
 	}
 
-	// Print out the initial rotation of the object
-	Debug::Print(FString::Printf(TEXT("World Rotation: Pitch=%.2f, Yaw=%.2f, Roll=%.2f"), HitComponent->GetComponentRotation().Pitch, HitComponent->GetComponentRotation().Yaw, HitComponent->GetComponentRotation().Roll));
-	Debug::Print(FString::Printf(TEXT("World Relative: Pitch=%.2f, Yaw=%.2f, Roll=%.2f"), HitComponent->GetRelativeRotation().Pitch, HitComponent->GetRelativeRotation().Yaw, HitComponent->GetRelativeRotation().Roll));
+	// Print out initial rotation information for testing
+	Debug::Print(TEXT("**************************************************************************************************************"));
+	Debug::Print(FString::Printf(TEXT("Player Added Rotation at pickup: Pitch=%.2f, Yaw=%.2f, Roll=%.2f"), FRotator(AdjustedQuat).Pitch, FRotator(AdjustedQuat).Yaw, FRotator(AdjustedQuat).Roll));
+	Debug::Print(FString::Printf(TEXT("Held Rotation at pickup: Pitch=%.2f, Yaw=%.2f, Roll=%.2f"), HeldRotation.Pitch, HeldRotation.Yaw, HeldRotation.Roll));
+	Debug::Print(FString::Printf(TEXT("**Look at Rotation at pickup: Pitch=%.2f, Yaw=%.2f, Roll=%.2f"), AdjustedLookAtRotation.Pitch, AdjustedLookAtRotation.Yaw, AdjustedLookAtRotation.Roll));
+	Debug::Print(FString::Printf(TEXT("Offset Rotation (difference between look at and held) at pickup: Pitch=%.2f, Yaw=%.2f, Roll=%.2f"), FRotator(OffsetQuat).Pitch, FRotator(OffsetQuat).Yaw, FRotator(OffsetQuat).Roll));
+	Debug::Print(TEXT("--------------------------------------------------------------------------------------------------------------"));
 
 	// Grab the object with its current location and rotation
 	PhysicsHandle->GrabComponentAtLocationWithRotation(
 		HitComponent,
 		NAME_None,
-		ObjectLocation,
+		TargetLocation,
 		HitComponent->GetComponentRotation()
 	);
 }
 
-FRotator UGrabber::RoundObjectRotation(UPrimitiveComponent* MeshComponent)
+// Round off the grabbed object's initial rotation based on the preferred rotation degrees
+FRotator UGrabber::RoundObjectRotation(FRotator HeldRot)
 {
 	FRotator ResRotation;
 
+	// Get all mods for calculations
+	float PitchMod = FMath::Fmod(HeldRot.Pitch, RotationDegrees);
+	float YawMod = FMath::Fmod(HeldRot.Yaw, RotationDegrees);
+	float RollMod = FMath::Fmod(HeldRot.Roll, RotationDegrees);
+
+	// Calculate the rounded rotations
+	ResRotation.Pitch = CalculateRotation(HeldRot.Pitch, PitchMod);
+	ResRotation.Yaw = CalculateRotation(HeldRot.Yaw, YawMod);
+	ResRotation.Roll = CalculateRotation(HeldRot.Roll, RollMod);
+
 	return ResRotation;
+}
+
+// Round off the specified pitch, yaw, or roll value
+float UGrabber::CalculateRotation(float CurrRot, float CurrMod)
+{
+	float RetRot = 0.0f;
+	float HalfRot = RotationDegrees / 2;
+
+	// Calculate the rounded values based on the mod values for pitch, yaw, and roll. For example: With RotationDegrees set to 45:
+	// If the currMod is close to 0, no adjustment is needed
+	if (FMath::Abs(CurrMod) < 0.01f) {
+		RetRot = 0;
+	}
+
+	// Calculate the rounded values based on the mod values for pitch, yaw, and roll. For example: With RotationDegrees set to 45:
+	// If the current mod is less than -22.5, we want to calculate (held rotation value + (-RotationDegrees - current mod value)) -> (-80 + (-45 - (-80 mod 45 = -35)) = -90)
+	else if (CurrMod < -HalfRot) {
+		RetRot = CurrRot + (-RotationDegrees - CurrMod);
+	}
+
+	// If the current mod is between -22.5 and 0, we want to calculate (held rotation value - current mod value) -> (-147 - (-147 mod 45 = -12) = -135)
+	// If the current mod is between 0 and 22.5, we want to calculate (held rotation value - current mod value) -> (94 - (94 mod 45 = 4) = 90)
+	else if (CurrMod > -HalfRot && CurrMod < HalfRot) {
+		RetRot = CurrRot - CurrMod;
+	}
+
+	// Otherwise, the current mod must be greater than 22.5, we want to calculate (held rotation value + (RotationDegrees - current mod value)) -> (68 + (45 - (68 mod 45 = 23)) = 90)
+	else {
+		RetRot = CurrRot + (RotationDegrees - CurrMod);
+	}
+
+	// Print out rounding calculations for testing
+	Debug::Print(FString::Printf(TEXT("Curr Rot: %f, Curr Mod: %f, Ret Value: %f"), CurrRot, CurrMod, RetRot));
+
+	return RetRot;
 }
 
 // Release the currently grabbed item
@@ -230,6 +287,9 @@ void UGrabber::Release()
 
 	// Release the component
 	PhysicsHandle->ReleaseComponent();
+
+	// Print out a seperator in print lines when dropping objects
+	Debug::Print(TEXT("**************************************************************************************************************"));
 }
 
 // Check if the player is currently holding an item
@@ -242,28 +302,28 @@ bool UGrabber::IsHoldingObject()
 void UGrabber::RotateLeft()
 {
 	FQuat DeltaRot = FQuat(FVector(0, 0, 1), FMath::DegreesToRadians(RotationDegrees));
-	AdjustedRotation = DeltaRot * AdjustedRotation;
+	AdjustedQuat = DeltaRot * AdjustedQuat;
 }
 
 // Rotate the currently held object to the right
 void UGrabber::RotateRight()
 {
 	FQuat DeltaRot = FQuat(FVector(0, 0, 1), FMath::DegreesToRadians(-RotationDegrees));
-	AdjustedRotation = DeltaRot * AdjustedRotation;
+	AdjustedQuat = DeltaRot * AdjustedQuat;
 }
 
 // Rotate the currently held object up
 void UGrabber::RotateUp()
 {
-	FQuat DeltaRot = FQuat(FVector(0, 1, 0), FMath::DegreesToRadians(RotationDegrees));
-	AdjustedRotation = DeltaRot * AdjustedRotation;
+	FQuat DeltaRot = FQuat(FVector(0, 1, 0), FMath::DegreesToRadians(-RotationDegrees));
+	AdjustedQuat = DeltaRot * AdjustedQuat;
 }
 
 // Rotate the currently held object down
 void UGrabber::RotateDown()
 {
-	FQuat DeltaRot = FQuat(FVector(0, 1, 0), FMath::DegreesToRadians(-RotationDegrees));
-	AdjustedRotation = DeltaRot * AdjustedRotation;
+	FQuat DeltaRot = FQuat(FVector(0, 1, 0), FMath::DegreesToRadians(RotationDegrees));
+	AdjustedQuat = DeltaRot * AdjustedQuat;
 }
 
 // Move the currently held object towards player
