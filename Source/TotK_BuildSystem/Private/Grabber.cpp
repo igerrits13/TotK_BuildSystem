@@ -67,12 +67,6 @@ void UGrabber::UpdateHeldObjectLocationAndRotation()
 	// Set the location and rotation of the held object
 	PhysicsHandle->SetTargetLocationAndRotation(TargetLocation, FinalQuat.Rotator());
 
-	// Print out the updated vector information each frame
-	Debug::Print(FString::Printf(TEXT("Look at Rotation: Pitch=%.2f, Yaw=%.2f, Roll=%.2f"), AdjustedLookAtRotation.Pitch, AdjustedLookAtRotation.Yaw, AdjustedLookAtRotation.Roll));
-	Debug::Print(FString::Printf(TEXT("Player Added Rotation: Pitch=%.2f, Yaw=%.2f, Roll=%.2f"), FRotator(AdjustedQuat).Pitch, FRotator(AdjustedQuat).Yaw, FRotator(AdjustedQuat).Roll));;
-	Debug::Print(FString::Printf(TEXT("Offset Rotation (difference between look at and held): Pitch=%.2f, Yaw=%.2f, Roll=%.2f"), FRotator(OffsetQuat).Pitch, FRotator(OffsetQuat).Yaw, FRotator(OffsetQuat).Roll));
-	Debug::Print(FString::Printf(TEXT("Final object rotation: Pitch=%.2f, Yaw=%.2f, Roll=%.2f"), FinalQuat.Rotator().Pitch, FinalQuat.Rotator().Yaw, FinalQuat.Rotator().Roll));
-
 	////////////////////////////////////////////////////////////////////////////////////
 	// For debugging - Draw debug lines for the held object
 	if (bDebugMode) {
@@ -206,14 +200,6 @@ void UGrabber::GrabObject(AMoveableObject* MoveableObject)
 		CurrentHoldDistance = MinHoldDistance;
 	}
 
-	// Print out initial rotation information for testing
-	Debug::Print(TEXT("**************************************************************************************************************"));
-	Debug::Print(FString::Printf(TEXT("Player Added Rotation at pickup: Pitch=%.2f, Yaw=%.2f, Roll=%.2f"), FRotator(AdjustedQuat).Pitch, FRotator(AdjustedQuat).Yaw, FRotator(AdjustedQuat).Roll));
-	Debug::Print(FString::Printf(TEXT("Held Rotation at pickup: Pitch=%.2f, Yaw=%.2f, Roll=%.2f"), HeldRotation.Pitch, HeldRotation.Yaw, HeldRotation.Roll));
-	Debug::Print(FString::Printf(TEXT("**Look at Rotation at pickup: Pitch=%.2f, Yaw=%.2f, Roll=%.2f"), AdjustedLookAtRotation.Pitch, AdjustedLookAtRotation.Yaw, AdjustedLookAtRotation.Roll));
-	Debug::Print(FString::Printf(TEXT("Offset Rotation (difference between look at and held) at pickup: Pitch=%.2f, Yaw=%.2f, Roll=%.2f"), FRotator(OffsetQuat).Pitch, FRotator(OffsetQuat).Yaw, FRotator(OffsetQuat).Roll));
-	Debug::Print(TEXT("--------------------------------------------------------------------------------------------------------------"));
-
 	// Grab the object with its current location and rotation
 	PhysicsHandle->GrabComponentAtLocationWithRotation(
 		HitComponent,
@@ -270,9 +256,6 @@ float UGrabber::CalculateRotation(float CurrRot, float CurrMod)
 		RetRot = CurrRot + (RotationDegrees - CurrMod);
 	}
 
-	// Print out rounding calculations for testing
-	Debug::Print(FString::Printf(TEXT("Curr Rot: %f, Curr Mod: %f, Ret Value: %f"), CurrRot, CurrMod, RetRot));
-
 	return RetRot;
 }
 
@@ -287,9 +270,6 @@ void UGrabber::Release()
 
 	// Release the component
 	PhysicsHandle->ReleaseComponent();
-
-	// Print out a seperator in print lines when dropping objects
-	Debug::Print(TEXT("**************************************************************************************************************"));
 }
 
 // Check if the player is currently holding an item

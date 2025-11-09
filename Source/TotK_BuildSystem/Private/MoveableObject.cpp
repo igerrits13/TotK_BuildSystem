@@ -252,7 +252,6 @@ AMoveableObject* AMoveableObject::GetClosestMoveableObjectInRadius()
 		else CurrClosestMoveableObject = GetClosestMoveableofTwo(FusedObject, HitResultObject, ClosestFusedMoveableObject, CurrClosestMoveableObject);
 	}
 
-
 	// If the previous movable object is not the current moveable object, update prev movable object accordingly. Then update the overlay material and return
 	if (PrevMoveableObject != CurrClosestMoveableObject && CurrClosestMoveableObject != nullptr) {
 		// If there was a previous moveable object, remove the overlay material from it, then update the previous moveable object to be the new closest and add an overlay material
@@ -264,6 +263,7 @@ AMoveableObject* AMoveableObject::GetClosestMoveableObjectInRadius()
 	}
 
 	if (CurrClosestMoveableObject == nullptr && PrevMoveableObject != nullptr) RemoveMoveableObjectMaterial(PrevMoveableObject);
+
 	return CurrClosestMoveableObject;
 }
 
