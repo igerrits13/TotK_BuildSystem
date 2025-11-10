@@ -99,6 +99,9 @@ private:
 	// Check if there is a grabbable object and return if there is
 	bool GetGrabbableInReach(FHitResult& OutHitResult, FRotator& OutOwnerRotation) const;
 
+	// Check if the player is currently standing on the grabbed object
+	bool IsStandingOnObject(AMoveableObject* MoveableObject) const;
+
 	// Grab the object, setting its initial location and rotation
 	void GrabObject(AMoveableObject* MoveableObject);
 

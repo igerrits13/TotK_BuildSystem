@@ -46,6 +46,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mesh")
 	UStaticMeshComponent* MeshComponent;
 
+	// Keep track of all fused objects
+	UPROPERTY()
+	TSet<AMoveableObject*> FusedObjects;
+
 protected:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
@@ -77,10 +81,6 @@ protected:
 	// Current nearby moveable object
 	UPROPERTY()
 	AMoveableObject* ClosestNearbyMoveableObject;
-
-	// Keep track of all fused objects
-	UPROPERTY()
-	TSet<AMoveableObject*> FusedObjects;
 
 	// Keep track of all physics constraints created on this object
 	TArray<FPhysicsConstraintLink> PhysicsConstraintLinks;

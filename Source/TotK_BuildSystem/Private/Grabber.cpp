@@ -115,7 +115,14 @@ void UGrabber::Grab()
 		GetOwner()->SetActorRotation(OwnerRotation);
 
 		// Setup the initial location and rotation of the grabbed object
-		GrabObject(MoveableObject);
+		if (!IsStandingOnObject(MoveableObject)) {
+			Debug::Print("Not standing on object");
+			GrabObject(MoveableObject);
+		}
+
+		else {
+			Debug::Print("Standing on object");
+		}
 	}
 }
 
@@ -153,6 +160,56 @@ bool UGrabber::GetGrabbableInReach(FHitResult& OutHitResult, FRotator& OutOwnerR
 
 	// Check for collisions with moveable actors
 	return GetWorld()->SweepSingleByChannel(OutHitResult, Start, End, FQuat::Identity, ECC_GameTraceChannel1, FCollisionShape::MakeSphere(GrabRadius), Params);
+}
+
+// Check if the player is currently standing on the grabbed object
+bool UGrabber::IsStandingOnObject(AMoveableObject* MoveableObject) const
+{
+	// Initialize vectors for line trace
+	FVector Start = GetOwner()->GetActorLocation();
+	FVector End = Start - FVector(0.f, 0.f, 200.f);
+
+	// Initialize variables for line trace
+	FHitResult HitResult;
+	FCollisionQueryParams Paramss;
+	Paramss.AddIgnoredActor(GetOwner());
+
+	////////////////////////////////////////////////////////////////////////////////////
+	// For debugging - Draw line trace when trying to grab an object
+	if (bDebugMode) {
+		DrawDebugLine(
+			GetWorld(),
+			Start,
+			End,
+			FColor::Red,
+			false,
+			3.f
+		);
+
+		const int32 Steps = 10;
+		for (int32 i = 0; i <= Steps; ++i)
+		{
+			FVector Point = FMath::Lerp(Start, End, i / float(Steps));
+			DrawDebugSphere(GetWorld(), Point, GrabRadius, 8, FColor::Yellow, false, 2.0f);
+		}
+	}
+	////////////////////////////////////////////////////////////////////////////////////
+
+	// Run line trace for where the player is standing
+	bool bHit = GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_Visibility, Paramss);
+
+	// If the hit result is a moveable object, check if the hit result is within the fused object set of any object below the player
+	if (HitResult.GetActor() && HitResult.GetActor()->IsA(AMoveableObject::StaticClass())) {
+		bool bStandingOnGrabbedObject = MoveableObject->FusedObjects.Contains(Cast<AMoveableObject>(HitResult.GetActor()));
+
+		// Only return true if the player is not standing on the moveable object
+		return bHit && bStandingOnGrabbedObject;
+	}
+
+	// If the hit result is not a moveable object, return false
+	else {
+		return false;
+	}
 }
 
 // Grab the object, setting its initial location and rotation
