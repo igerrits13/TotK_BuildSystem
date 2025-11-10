@@ -10,6 +10,7 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
+#include "Grabber.h"
 
 #include "DebgugHelper.h"
 
@@ -152,6 +153,7 @@ void ATotK_BuildSystemCharacter::Look(const FInputActionValue& Value)
 void ATotK_BuildSystemCharacter::Grab(const FInputActionValue& value)
 {
 	if (GrabberComponent) {
+		bIsGrabbing = true;
 		GrabberComponent->Grab();
 	}
 }
@@ -160,6 +162,7 @@ void ATotK_BuildSystemCharacter::Grab(const FInputActionValue& value)
 void ATotK_BuildSystemCharacter::Release(const FInputActionValue& value)
 {
 	if (GrabberComponent) {
+		bIsGrabbing = false;
 		GrabberComponent->Release();
 	}
 }

@@ -5,6 +5,7 @@
 #include "Engine/World.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "DrawDebugHelpers.h"
+#include "TotK_BuildSystem/TotK_BuildSystemCharacter.h"
 
 #include "../DebgugHelper.h"
 
@@ -30,6 +31,9 @@ void UGrabber::BeginPlay()
 
 	// Store parameters to ignore the player when trying to grab
 	Params.AddIgnoredActor(GetOwner());
+
+	// Get reference to the player character
+	PlayerCharacter = Cast<ATotK_BuildSystemCharacter>(GetOwner());
 }
 
 
@@ -114,14 +118,31 @@ void UGrabber::Grab()
 		// Rotate the player towrards the object being picked up
 		GetOwner()->SetActorRotation(OwnerRotation);
 
-		// Setup the initial location and rotation of the grabbed object
-		if (!IsStandingOnObject(MoveableObject)) {
-			Debug::Print("Not standing on object");
-			GrabObject(MoveableObject);
+		// If the player is trying to grab an object they are standing on, do not do anything until they are no longer standing on the object or stop trying to grab the object
+		if (IsStandingOnObject(MoveableObject)) {
+			// Clear any existing timer handle
+			GetWorld()->GetTimerManager().ClearTimer(WaitToGrabHandle);
+
+			// Create a new timer to check every 0.1 seconds if the player is still standing on the grabbed object
+			GetWorld()->GetTimerManager().SetTimer(WaitToGrabHandle,
+				[this, MoveableObject]() {
+					// If the player moves off the object and is still trying to grab it, grab the object
+					if (!IsStandingOnObject(MoveableObject) && PlayerCharacter->bIsGrabbing) {
+						GetWorld()->GetTimerManager().ClearTimer(WaitToGrabHandle);
+						GrabObject(MoveableObject);
+					}
+
+					// If the player stopped trying to grab the object, clear the timer
+					else if (!PlayerCharacter->bIsGrabbing) {
+						GetWorld()->GetTimerManager().ClearTimer(WaitToGrabHandle);
+					}
+
+				}, 0.1f, true);
 		}
 
+		// If the player is not standing on the object, simply grab it
 		else {
-			Debug::Print("Standing on object");
+			GrabObject(MoveableObject);
 		}
 	}
 }
@@ -171,8 +192,6 @@ bool UGrabber::IsStandingOnObject(AMoveableObject* MoveableObject) const
 
 	// Initialize variables for line trace
 	FHitResult HitResult;
-	FCollisionQueryParams Paramss;
-	Paramss.AddIgnoredActor(GetOwner());
 
 	////////////////////////////////////////////////////////////////////////////////////
 	// For debugging - Draw line trace when trying to grab an object
@@ -196,7 +215,7 @@ bool UGrabber::IsStandingOnObject(AMoveableObject* MoveableObject) const
 	////////////////////////////////////////////////////////////////////////////////////
 
 	// Run line trace for where the player is standing
-	bool bHit = GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_Visibility, Paramss);
+	bool bHit = GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_Visibility, Params);
 
 	// If the hit result is a moveable object, check if the hit result is within the fused object set of any object below the player
 	if (HitResult.GetActor() && HitResult.GetActor()->IsA(AMoveableObject::StaticClass())) {

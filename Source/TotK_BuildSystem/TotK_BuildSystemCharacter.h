@@ -5,7 +5,6 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "Logging/LogMacros.h"
-#include "Grabber.h"
 #include "TotK_BuildSystemCharacter.generated.h"
 
 class USpringArmComponent;
@@ -15,6 +14,8 @@ class UInputAction;
 struct FInputActionValue;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogTemplateCharacter, Log, All);
+
+class UGrabber;
 
 UCLASS(config = Game)
 class ATotK_BuildSystemCharacter : public ACharacter
@@ -79,6 +80,9 @@ class ATotK_BuildSystemCharacter : public ACharacter
 
 public:
 	ATotK_BuildSystemCharacter();
+
+	// Track if character is trying to grab object
+	bool bIsGrabbing = false;
 
 protected:
 

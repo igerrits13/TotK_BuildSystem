@@ -9,6 +9,7 @@
 #include "MoveableObject.h"
 #include "Grabber.generated.h"
 
+class ATotK_BuildSystemCharacter;
 
 UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
 class TOTK_BUILDSYSTEM_API UGrabber : public USceneComponent, public IMoveableObjectInterface
@@ -115,6 +116,9 @@ private:
 	UPROPERTY()
 	UPhysicsHandleComponent* PhysicsHandle;
 
+	// Reference to the player character class
+	ATotK_BuildSystemCharacter* PlayerCharacter;
+
 	// Vector for offsetting the height of held objects caused by third-person camera
 	FVector CameraOffsetVector;
 
@@ -132,4 +136,7 @@ private:
 
 	// Player adjusted rotation based off of rotating the held object
 	FQuat AdjustedQuat;
+
+	// Handle for object grabbing timer
+	FTimerHandle WaitToGrabHandle;
 };
