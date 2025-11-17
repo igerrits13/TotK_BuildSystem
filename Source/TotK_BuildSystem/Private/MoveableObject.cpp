@@ -1,5 +1,7 @@
 #include "MoveableObject.h"
 #include "DrawDebugHelpers.h"
+#include "SnapPointComponent.h"
+#include "Kismet/KismetSystemLibrary.h"
 
 #include "../DebgugHelper.h"
 
@@ -31,6 +33,9 @@ void AMoveableObject::BeginPlay()
 	// Initialize the set of fused objects and after this object has been created 
 	FusedObjects.Add(this);
 	ClosestFusedMoveableObject = this;
+
+	// Initialize the array of snap points, storing all snap points created from the blue print
+	GetComponents<USnapPointComponent>(SnapPoints);
 }
 
 // Called every frame
@@ -41,8 +46,25 @@ void AMoveableObject::Tick(float DeltaTime)
 	// Update the current velocities of the moveable object
 	UpdateVelocities();
 
+	// If an object is currently held, get the closest moveable object within its radius and update the overlay material based on if there is a nearby object
+	if (bIsGrabbed && MeshComponent != nullptr) {
+		ClosestNearbyMoveableObject = GetClosestMoveableObjectInRadius();
+		UpdateMoveableObjectMaterial(this, ClosestNearbyMoveableObject ? true : false);
+	}
+
+	// If a nearby moveable object exists, update the closest fusion points on the nearby moveable object and the currently held object
+	if (ClosestNearbyMoveableObject) {
+		UpdateCollisionPoints();
+
+		// If two objects are currently fusing, interpolate the location of the previously held object to move towards the object it is fusing with, joining the two objects at the associated closest points
+		if (bIsFusing) {
+			InterpFusedObjects(DeltaTime);
+		}
+	}
+
 	////////////////////////////////////////////////////////////////////////////////////
-	// For debugging - Draw the moveable object's collision box
+	// For debugging 
+	// Draw the moveable object's collision box
 	if (bDebugMode) {
 		DrawDebugBox(
 			GetWorld(),
@@ -55,47 +77,36 @@ void AMoveableObject::Tick(float DeltaTime)
 			0,
 			2.0f   // Line thickness
 		);
+
+		// Draw debug spheres for each snap point
+		for (USnapPointComponent* Point : SnapPoints) {
+			if (Point) {
+				Point->DrawDebug();
+			}
+		}
+
+		// For debugging - Draw collision points for fusing objects
+		if (ClosestNearbyMoveableObject != nullptr && bDebugMode) {
+			DrawDebugPoint(
+				GetWorld(),
+				HeldClosestFusionPoint,
+				15.f,
+				FColor::Green,
+				false,
+				0.f
+			);
+
+			DrawDebugPoint(
+				GetWorld(),
+				OtherClosestFusionPoint,
+				15.f,
+				FColor::Turquoise,
+				false,
+				0.f
+			);
+		}
 	}
 	////////////////////////////////////////////////////////////////////////////////////
-
-	// If an object is currently held, get the closest moveable object within its radius and update the overlay material based on if there is a nearby object
-	if (bIsGrabbed && MeshComponent != nullptr) {
-		ClosestNearbyMoveableObject = GetClosestMoveableObjectInRadius();
-		UpdateMoveableObjectMaterial(this, ClosestNearbyMoveableObject ? true : false);
-	}
-
-	////////////////////////////////////////////////////////////////////////////////////
-	// For debugging - Draw collision points for fusing objects
-	if (ClosestNearbyMoveableObject != nullptr && bDebugMode) {
-		DrawDebugPoint(
-			GetWorld(),
-			HeldClosestFusionPoint,
-			15.f,
-			FColor::Green,
-			false,
-			0.f
-		);
-
-		DrawDebugPoint(
-			GetWorld(),
-			OtherClosestFusionPoint,
-			15.f,
-			FColor::Turquoise,
-			false,
-			0.f
-		);
-	}
-	////////////////////////////////////////////////////////////////////////////////////
-
-	// If a nearby moveable object exists, update the closest fusion points on the nearby moveable object and the currently held object
-	if (ClosestNearbyMoveableObject) {
-		UpdateCollisionPoints();
-	}
-
-	// If two objects are currently fusing, interpolate the location of the previously held object to move towards the object it is fusing with, joining the two objects at the associated closest points
-	if (ClosestNearbyMoveableObject != nullptr && bIsFusing) {
-		InterpFusedObjects(DeltaTime);
-	}
 }
 
 // Update the current velocities of the moveable object
@@ -262,7 +273,10 @@ AMoveableObject* AMoveableObject::GetClosestMoveableObjectInRadius()
 		UpdateMoveableObjectMaterial(CurrClosestMoveableObject, true);
 	}
 
-	if (CurrClosestMoveableObject == nullptr && PrevMoveableObject != nullptr) RemoveMoveableObjectMaterial(PrevMoveableObject);
+	else if (CurrClosestMoveableObject == nullptr && PrevMoveableObject != nullptr) {
+		RemoveMoveableObjectMaterial(PrevMoveableObject);
+		PrevMoveableObject = nullptr;
+	}
 
 	return CurrClosestMoveableObject;
 }
@@ -378,8 +392,44 @@ void AMoveableObject::UpdateCollisionPoints()
 {
 	FVector HeldFuseObjectCenter = ClosestFusedMoveableObject->MeshComponent->GetOwner()->GetActorLocation();
 	ClosestNearbyMoveableObject->MeshComponent->GetClosestPointOnCollision(HeldFuseObjectCenter, OtherClosestFusionPoint);
-
 	ClosestFusedMoveableObject->MeshComponent->GetClosestPointOnCollision(OtherClosestFusionPoint, HeldClosestFusionPoint);
+
+	FVector HeldCollisionPoint = HeldClosestFusionPoint;
+	FVector NearbyCollisionPoint = OtherClosestFusionPoint;
+
+	TArray<USnapPointComponent*> HeldSnapPoints = GetPossibleSnapPoints(HeldCollisionPoint);
+	TArray<USnapPointComponent*> NearbySnapPoints = GetPossibleSnapPoints(NearbyCollisionPoint);
+}
+
+// Get possible snap points
+TArray<USnapPointComponent*> AMoveableObject::GetPossibleSnapPoints(FVector TestPoint)
+{
+	// Get all the overlap components
+	TArray<UPrimitiveComponent*> OverlapComponents;
+
+	UKismetSystemLibrary::SphereOverlapComponents(
+		GetWorld(),
+		TestPoint,
+		SnapSearchRadius,
+		{ UEngineTypes::ConvertToObjectType(ECC_WorldDynamic) },
+		UPrimitiveComponent::StaticClass(),
+		TArray<AActor*>(),
+		OverlapComponents
+	);
+
+	// Filter out and return only the snap point components
+	TArray<USnapPointComponent*> TestSnapPoints;
+
+	for (UPrimitiveComponent* Component : OverlapComponents) {
+		if (!Component) continue;
+
+		USnapPointComponent* SnapPoint = Cast<USnapPointComponent>(Component);
+		if (SnapPoint) {
+			TestSnapPoints.Add(SnapPoint);
+		}
+	}
+
+	return TestSnapPoints;
 }
 
 // Move objects being fused together via interpolation over time

@@ -33,6 +33,8 @@ struct FPhysicsConstraintLink
 	}
 };
 
+class USnapPointComponent;
+
 UCLASS()
 class TOTK_BUILDSYSTEM_API AMoveableObject : public AActor, public IMoveableObjectInterface
 {
@@ -69,6 +71,10 @@ protected:
 	// Tollerance for fusing objects together
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Collision")
 	float FuseTolerance = 1.f;
+
+	// Tollerance for fusing objects together
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Snap")
+	float SnapSearchRadius = 10.f;
 
 	// Boolean for if debug information should be shown
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Debug")
@@ -131,6 +137,9 @@ private:
 	// Update the closest collision points on the held object and the nearby fusion object
 	void UpdateCollisionPoints();
 
+	// Get possible snap points
+	TArray<USnapPointComponent*> GetPossibleSnapPoints(FVector TestPoint);
+
 	// Move objects being fused together via interpolation over time
 	void InterpFusedObjects(float DeltaTime);
 
@@ -189,6 +198,10 @@ private:
 	// Most recent nearby moveable object
 	UPROPERTY()
 	AMoveableObject* PrevMoveableObject;
+
+	// Array to track all the existing snap points of the current moveable object
+	UPROPERTY()
+	TArray<USnapPointComponent*> SnapPoints;
 
 	// Track if a moveable object is grabbed or not
 	bool bIsGrabbed = false;
