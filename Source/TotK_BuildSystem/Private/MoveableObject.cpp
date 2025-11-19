@@ -98,9 +98,9 @@ void AMoveableObject::Tick(float DeltaTime)
 
 			DrawDebugPoint(
 				GetWorld(),
-				OtherClosestFusionPoint,
+				OtherClosestSnapPoint,
 				15.f,
-				FColor::Turquoise,
+				FColor::Orange,
 				false,
 				0.f
 			);
@@ -393,7 +393,7 @@ void AMoveableObject::UpdateCollisionPoints()
 {
 	// Get the closest collision points of both the held and nearby moveable object
 	FVector HeldFuseObjectCenter = ClosestFusedMoveableObject->MeshComponent->GetOwner()->GetActorLocation();
-	FVector HeldClosestFusionPoint;
+	FVector HeldClosestFusionPoint, OtherClosestFusionPoint;
 	ClosestNearbyMoveableObject->MeshComponent->GetClosestPointOnCollision(HeldFuseObjectCenter, OtherClosestFusionPoint);
 	ClosestFusedMoveableObject->MeshComponent->GetClosestPointOnCollision(OtherClosestFusionPoint, HeldClosestFusionPoint);
 
@@ -401,14 +401,24 @@ void AMoveableObject::UpdateCollisionPoints()
 	TArray<USnapPointComponent*> HeldSnapPoints = GetPossibleSnapPoints(HeldClosestFusionPoint, ClosestFusedMoveableObject);
 	TArray<USnapPointComponent*> NearbySnapPoints = GetPossibleSnapPoints(OtherClosestFusionPoint, ClosestNearbyMoveableObject);
 
-	// Get the closest snap point to the previously calculated collision point. If there is none, simply use the collision point itself
-	USnapPointComponent* HeldClosestPoint = GetClosestHeldSnapPoint(HeldSnapPoints, HeldClosestFusionPoint);
+	// Get the closest snap point to the previously calculated collision point for the held object. If there is none, simply use the collision point itself
+	USnapPointComponent* HeldClosestPoint = GetClosestObjectSnapPoint(HeldSnapPoints, HeldClosestFusionPoint);
 	if (HeldClosestPoint) {
 		HeldClosestSnapPoint = HeldClosestPoint->GetComponentLocation();
 	}
 
 	else {
 		HeldClosestSnapPoint = HeldClosestFusionPoint;
+	}
+
+	// Get the closest snap point to the previously calculated collision point for the nearby object. If there is none, simply use the collision point itself
+	USnapPointComponent* NearbyClosestPoint = GetClosestObjectSnapPoint(NearbySnapPoints, OtherClosestFusionPoint);
+	if (NearbyClosestPoint) {
+		OtherClosestSnapPoint = NearbyClosestPoint->GetComponentLocation();
+	}
+
+	else {
+		OtherClosestSnapPoint = OtherClosestFusionPoint;
 	}
 }
 
@@ -436,7 +446,7 @@ TArray<USnapPointComponent*> AMoveableObject::GetPossibleSnapPoints(FVector Test
 }
 
 // Get the closest snap point on the held object
-USnapPointComponent* AMoveableObject::GetClosestHeldSnapPoint(TArray<USnapPointComponent*> PossibleSnapPoints, FVector TestPoint)
+USnapPointComponent* AMoveableObject::GetClosestObjectSnapPoint(TArray<USnapPointComponent*> PossibleSnapPoints, FVector TestPoint)
 {
 	// Initialize a null return snap point
 	USnapPointComponent* ClosestSnap = nullptr;
@@ -504,17 +514,16 @@ void AMoveableObject::InterpFusedObjects(float DeltaTime)
 {
 	// Get the object offset from the center of the held object to the closest point of the held object and adjust the target location based on the offset
 	FVector Offset = HeldClosestSnapPoint - ClosestFusedMoveableObject->MeshComponent->GetOwner()->GetActorLocation();
-	FVector TargetActorLocation = OtherClosestFusionPoint - Offset;
+	FVector TargetActorLocation = OtherClosestSnapPoint - Offset;
 
-	//Debug::Print(TEXT("Interping"));
 	ClosestFusedMoveableObject->MeshComponent->GetOwner()->SetActorLocation(FMath::VInterpTo(ClosestFusedMoveableObject->MeshComponent->GetOwner()->GetActorLocation(), TargetActorLocation, DeltaTime, InterpSpeed));
 
-	// Check the distance between closest points, once they are within the given tolerance, fusion has been completed
-	float Distance = FVector::Dist(HeldClosestSnapPoint, OtherClosestFusionPoint);
+	// Check the distance between closest points, once they are within the given tolerance, fusion has been completed and the closest nearby object no longer needs to be tracked
+	float Distance = FVector::Dist(HeldClosestSnapPoint, OtherClosestSnapPoint);
 	if (Distance <= FuseTolerance) {
-		//Debug::Print(TEXT("Done Interping"));
 		bIsFusing = false;
 		UpdateConstraints(ClosestNearbyMoveableObject);
+		ClosestNearbyMoveableObject = nullptr;
 	}
 }
 
