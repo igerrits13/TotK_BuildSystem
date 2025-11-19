@@ -43,7 +43,7 @@ void UGrabber::TickComponent(float DeltaTime, ELevelTick TickType, FActorCompone
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
 	// Do nothing if there is no valid physics handle or held object
-	if (PhysicsHandle == nullptr || PhysicsHandle->GetGrabbedComponent() == nullptr) return;
+	if (!PhysicsHandle || !PhysicsHandle->GetGrabbedComponent()) return;
 
 	// Update the held object's location and rotation as well as the rotation of the player
 	UpdateHeldObjectLocationAndRotation();
@@ -105,7 +105,7 @@ void UGrabber::UpdatePlayerRotation()
 void UGrabber::Grab()
 {
 	// Check to make sure there is a valid owner and physics handle
-	if (!GetOwner() || PhysicsHandle == nullptr) return;
+	if (!GetOwner() || !PhysicsHandle) return;
 
 	// Initialize variable to store hit result and rotation in respect to where the object being picked up is at
 	FHitResult HitResult;
@@ -339,7 +339,7 @@ float UGrabber::CalculateRotation(float CurrRot, float CurrMod)
 void UGrabber::Release()
 {
 	// Check to make sure there is a valid physics handle with a grabbed object
-	if (PhysicsHandle == nullptr || PhysicsHandle->GetGrabbedComponent() == nullptr) return;
+	if (!PhysicsHandle || !PhysicsHandle->GetGrabbedComponent()) return;
 
 	// Call OnRelease using the moveable objects interface
 	IMoveableObjectInterface::Execute_OnRelease(PhysicsHandle->GetGrabbedComponent()->GetOwner());

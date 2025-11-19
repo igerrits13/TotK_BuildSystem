@@ -47,7 +47,7 @@ void AMoveableObject::Tick(float DeltaTime)
 	UpdateVelocities();
 
 	// If an object is currently held, get the closest moveable object within its radius and update the overlay material based on if there is a nearby object
-	if (bIsGrabbed && MeshComponent != nullptr) {
+	if (bIsGrabbed && MeshComponent) {
 		ClosestNearbyMoveableObject = GetClosestMoveableObjectInRadius();
 		UpdateMoveableObjectMaterial(this, ClosestNearbyMoveableObject ? true : false);
 	}
@@ -86,10 +86,10 @@ void AMoveableObject::Tick(float DeltaTime)
 		}
 
 		// For debugging - Draw collision points for fusing objects
-		if (ClosestNearbyMoveableObject != nullptr && bDebugMode) {
+		if (ClosestNearbyMoveableObject && bDebugMode) {
 			DrawDebugPoint(
 				GetWorld(),
-				HeldClosestFusionPoint,
+				HeldClosestSnapPoint,
 				15.f,
 				FColor::Green,
 				false,
@@ -217,14 +217,15 @@ void AMoveableObject::OnRelease_Implementation()
 	RemoveMoveableObjectMaterial(this);
 
 	// Remove material from nearby moveable object and all of its fused objects, if one exists. Then update the previous moveable object to be null
-	if (PrevMoveableObject != nullptr) {
+	if (PrevMoveableObject) {
 		RemoveMoveableObjectMaterial(PrevMoveableObject);
 		PrevMoveableObject = nullptr;
 	}
 
 	// If there is a nearby moveable object on release, fuse object groups together
-	if (ClosestNearbyMoveableObject != nullptr) {
-		FuseMoveableObjects(ClosestNearbyMoveableObject);
+	if (ClosestNearbyMoveableObject) {
+		//FuseMoveableObjects(ClosestNearbyMoveableObject);
+		bIsFusing = true;
 	}
 
 	// Set all fused object's velocities to zero
@@ -241,7 +242,7 @@ AMoveableObject* AMoveableObject::GetClosestMoveableObjectInRadius()
 	// Get the closest moveable object for each object in the currently held object's fused group
 	for (AMoveableObject* FusedObject : FusedObjects) {
 		// Do not check for collisions if the current object does not have a collision box
-		if (FusedObject->FuseCollisionBox == nullptr) continue;
+		if (!FusedObject->FuseCollisionBox) continue;
 
 		// Get all overlapping actors with collision box
 		TArray<AActor*> OverlapActors;
@@ -264,16 +265,16 @@ AMoveableObject* AMoveableObject::GetClosestMoveableObjectInRadius()
 	}
 
 	// If the previous movable object is not the current moveable object, update prev movable object accordingly. Then update the overlay material and return
-	if (PrevMoveableObject != CurrClosestMoveableObject && CurrClosestMoveableObject != nullptr) {
+	if (PrevMoveableObject != CurrClosestMoveableObject && CurrClosestMoveableObject) {
 		// If there was a previous moveable object, remove the overlay material from it, then update the previous moveable object to be the new closest and add an overlay material
-		if (PrevMoveableObject && PrevMoveableObject->MeshComponent->GetOverlayMaterial() != nullptr) {
+		if (PrevMoveableObject && PrevMoveableObject->MeshComponent->GetOverlayMaterial()) {
 			RemoveMoveableObjectMaterial(PrevMoveableObject);
 		}
 		PrevMoveableObject = CurrClosestMoveableObject;
 		UpdateMoveableObjectMaterial(CurrClosestMoveableObject, true);
 	}
 
-	else if (CurrClosestMoveableObject == nullptr && PrevMoveableObject != nullptr) {
+	else if (!CurrClosestMoveableObject && PrevMoveableObject) {
 		RemoveMoveableObjectMaterial(PrevMoveableObject);
 		PrevMoveableObject = nullptr;
 	}
@@ -390,41 +391,43 @@ AMoveableObject* AMoveableObject::CheckMoveableObjectTrace(AMoveableObject* Near
 // Update the closest collision points on the held object and the nearby fusion object
 void AMoveableObject::UpdateCollisionPoints()
 {
+	// Get the closest collision points of both the held and nearby moveable object
 	FVector HeldFuseObjectCenter = ClosestFusedMoveableObject->MeshComponent->GetOwner()->GetActorLocation();
+	FVector HeldClosestFusionPoint;
 	ClosestNearbyMoveableObject->MeshComponent->GetClosestPointOnCollision(HeldFuseObjectCenter, OtherClosestFusionPoint);
 	ClosestFusedMoveableObject->MeshComponent->GetClosestPointOnCollision(OtherClosestFusionPoint, HeldClosestFusionPoint);
 
-	FVector HeldCollisionPoint = HeldClosestFusionPoint;
-	FVector NearbyCollisionPoint = OtherClosestFusionPoint;
+	// From the closest collision point, get all possible snap points within a specified radius
+	TArray<USnapPointComponent*> HeldSnapPoints = GetPossibleSnapPoints(HeldClosestFusionPoint, ClosestFusedMoveableObject);
+	TArray<USnapPointComponent*> NearbySnapPoints = GetPossibleSnapPoints(OtherClosestFusionPoint, ClosestNearbyMoveableObject);
 
-	TArray<USnapPointComponent*> HeldSnapPoints = GetPossibleSnapPoints(HeldCollisionPoint);
-	TArray<USnapPointComponent*> NearbySnapPoints = GetPossibleSnapPoints(NearbyCollisionPoint);
+	// Get the closest snap point to the previously calculated collision point. If there is none, simply use the collision point itself
+	USnapPointComponent* HeldClosestPoint = GetClosestHeldSnapPoint(HeldSnapPoints, HeldClosestFusionPoint);
+	if (HeldClosestPoint) {
+		HeldClosestSnapPoint = HeldClosestPoint->GetComponentLocation();
+	}
+
+	else {
+		HeldClosestSnapPoint = HeldClosestFusionPoint;
+	}
 }
 
 // Get possible snap points
-TArray<USnapPointComponent*> AMoveableObject::GetPossibleSnapPoints(FVector TestPoint)
+TArray<USnapPointComponent*> AMoveableObject::GetPossibleSnapPoints(FVector TestPoint, AMoveableObject* TestObject)
 {
-	// Get all the overlap components
-	TArray<UPrimitiveComponent*> OverlapComponents;
-
-	UKismetSystemLibrary::SphereOverlapComponents(
-		GetWorld(),
-		TestPoint,
-		SnapSearchRadius,
-		{ UEngineTypes::ConvertToObjectType(ECC_WorldDynamic) },
-		UPrimitiveComponent::StaticClass(),
-		TArray<AActor*>(),
-		OverlapComponents
-	);
-
-	// Filter out and return only the snap point components
 	TArray<USnapPointComponent*> TestSnapPoints;
 
-	for (UPrimitiveComponent* Component : OverlapComponents) {
-		if (!Component) continue;
+	for (USnapPointComponent* SnapPoint : TestObject->SnapPoints) {
+		if (!SnapPoint) continue;
 
-		USnapPointComponent* SnapPoint = Cast<USnapPointComponent>(Component);
-		if (SnapPoint) {
+		////////////////////////////////////////////////////////////////////////////////////
+		// For debugging - Print the distance between objects
+		if (bDebugMode) {
+			Debug::Print(FString::Printf(TEXT("Testing %s:"), *SnapPoint->GetName()));
+		}
+		////////////////////////////////////////////////////////////////////////////////////
+
+		if (FVector::DistSquared(SnapPoint->GetComponentLocation(), TestPoint) < SnapSearchRadius * SnapSearchRadius) {
 			TestSnapPoints.Add(SnapPoint);
 		}
 	}
@@ -432,18 +435,82 @@ TArray<USnapPointComponent*> AMoveableObject::GetPossibleSnapPoints(FVector Test
 	return TestSnapPoints;
 }
 
+// Get the closest snap point on the held object
+USnapPointComponent* AMoveableObject::GetClosestHeldSnapPoint(TArray<USnapPointComponent*> PossibleSnapPoints, FVector TestPoint)
+{
+	// Initialize a null return snap point
+	USnapPointComponent* ClosestSnap = nullptr;
+
+	// Iterate over all possible snap points, making sure to get the closest valid snap point
+	for (USnapPointComponent* SnapPoint : PossibleSnapPoints) {
+		if (!SnapPoint) continue;
+
+		////////////////////////////////////////////////////////////////////////////////////
+		// For debugging - Print the distance between objects
+		if (bDebugMode) {
+			Debug::Print(FString::Printf(TEXT("Testing %s:"), *SnapPoint->GetName()));
+		}
+		////////////////////////////////////////////////////////////////////////////////////
+
+		/*if (!ClosestSnap) {
+			ClosestSnap = SnapPoint;
+			continue;
+		}*/
+
+		ClosestSnap = GetClosestVector(TestPoint, ClosestSnap, SnapPoint);
+	}
+
+	return ClosestSnap;
+}
+
+// Get the closest snap point to the current test point
+USnapPointComponent* AMoveableObject::GetClosestVector(FVector TestPoint, USnapPointComponent* PointA, USnapPointComponent* PointB)
+{
+	// If an snap point is null, return the other
+	if (!PointA) return PointB;
+	if (!PointB) return PointA;
+
+	// Compare the distance of each snap point to the test point and return the closest result
+	float PointADist = GetVectorDistance(TestPoint, PointA->GetComponentLocation());
+	float PointBDist = GetVectorDistance(TestPoint, PointB->GetComponentLocation());
+
+	////////////////////////////////////////////////////////////////////////////////////
+	// For debugging - Print the distance between objects
+	if (bDebugMode) {
+		/*Debug::Print(FString::Printf(TEXT("Distance A for %s to %s: %f"), *Held->GetName(), *ObjectA->GetName(), ObjectADist));
+		Debug::Print(FString::Printf(TEXT("Distance B for %s to %s: %f"), *Held->GetName(), *ObjectB->GetName(), ObjectBDist));*/
+	}
+	////////////////////////////////////////////////////////////////////////////////////
+
+	// If point A's distance to the test point is less than or equal to point B's distance, return point A
+	if (PointADist <= PointBDist) {
+		return PointA;
+	}
+
+	// Otherwise return point B
+	else {
+		return PointB;
+	}
+}
+
+// Get the distance betwen two vectors
+float AMoveableObject::GetVectorDistance(FVector PointA, FVector PointB)
+{
+	return FVector::Distance(PointA, PointB);
+}
+
 // Move objects being fused together via interpolation over time
 void AMoveableObject::InterpFusedObjects(float DeltaTime)
 {
 	// Get the object offset from the center of the held object to the closest point of the held object and adjust the target location based on the offset
-	FVector Offset = HeldClosestFusionPoint - ClosestFusedMoveableObject->MeshComponent->GetOwner()->GetActorLocation();
+	FVector Offset = HeldClosestSnapPoint - ClosestFusedMoveableObject->MeshComponent->GetOwner()->GetActorLocation();
 	FVector TargetActorLocation = OtherClosestFusionPoint - Offset;
 
 	//Debug::Print(TEXT("Interping"));
 	ClosestFusedMoveableObject->MeshComponent->GetOwner()->SetActorLocation(FMath::VInterpTo(ClosestFusedMoveableObject->MeshComponent->GetOwner()->GetActorLocation(), TargetActorLocation, DeltaTime, InterpSpeed));
 
 	// Check the distance between closest points, once they are within the given tolerance, fusion has been completed
-	float Distance = FVector::Dist(HeldClosestFusionPoint, OtherClosestFusionPoint);
+	float Distance = FVector::Dist(HeldClosestSnapPoint, OtherClosestFusionPoint);
 	if (Distance <= FuseTolerance) {
 		//Debug::Print(TEXT("Done Interping"));
 		bIsFusing = false;
@@ -455,8 +522,8 @@ void AMoveableObject::InterpFusedObjects(float DeltaTime)
 AMoveableObject* AMoveableObject::GetClosestMoveable(AMoveableObject* Held, AMoveableObject* ObjectA, AMoveableObject* ObjectB)
 {
 	// If an object is null, return the other
-	if (ObjectA == nullptr) return ObjectB;
-	if (ObjectB == nullptr) return ObjectA;
+	if (!ObjectA) return ObjectB;
+	if (!ObjectB) return ObjectA;
 
 	// Compare the distance of each object to the held object and return the closest result
 	float ObjectADist = GetObjectDistance(Held, ObjectA);
@@ -485,8 +552,8 @@ AMoveableObject* AMoveableObject::GetClosestMoveable(AMoveableObject* Held, AMov
 AMoveableObject* AMoveableObject::GetClosestMoveableofTwo(AMoveableObject* TestFused, AMoveableObject* TestMoveable, AMoveableObject* CurrentBestFused, AMoveableObject* CurrentBestMoveable)
 {
 	// If an object is null, return the other
-	if (TestMoveable == nullptr) return CurrentBestMoveable;
-	if (CurrentBestMoveable == nullptr) return TestMoveable;
+	if (!TestMoveable) return CurrentBestMoveable;
+	if (!CurrentBestMoveable) return TestMoveable;
 
 	// Compare the distance of each object to the held object and return the closest result
 	float ObjectADist = GetObjectDistance(TestFused, TestMoveable);
@@ -554,19 +621,6 @@ void AMoveableObject::RemoveMoveableObjectMaterial(AMoveableObject* MoveableObje
 		Object->MeshComponent->SetOverlayMaterial(nullptr);
 		Object->DynamicMat = nullptr;
 	}
-}
-
-// Fuse current object group with the nearest fuseable object
-void AMoveableObject::FuseMoveableObjects(AMoveableObject* MoveableObject)
-{
-	// Calculate closest points between objects
-	FVector HeldFuseObjectCenter = MeshComponent->GetOwner()->GetActorLocation();
-	MoveableObject->MeshComponent->GetClosestPointOnCollision(HeldFuseObjectCenter, OtherClosestFusionPoint);
-
-	MeshComponent->GetClosestPointOnCollision(OtherClosestFusionPoint, HeldClosestFusionPoint);
-
-	// Begin fusing in tick function
-	bIsFusing = true;
 }
 
 // Update the physics constraints of the two objects being fused

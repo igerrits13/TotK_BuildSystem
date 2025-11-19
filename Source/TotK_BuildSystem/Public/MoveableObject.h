@@ -74,7 +74,7 @@ protected:
 
 	// Tollerance for fusing objects together
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Snap")
-	float SnapSearchRadius = 10.f;
+	float SnapSearchRadius = 50.f;
 
 	// Boolean for if debug information should be shown
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Debug")
@@ -95,7 +95,7 @@ protected:
 	bool bIsFusing;
 
 	// Closest point for fusing the held object to another nearby object
-	FVector HeldClosestFusionPoint;
+	FVector HeldClosestSnapPoint;
 
 	// Offset center of held object to closest fusion point
 	FVector HeldLocalOffset;
@@ -138,7 +138,16 @@ private:
 	void UpdateCollisionPoints();
 
 	// Get possible snap points
-	TArray<USnapPointComponent*> GetPossibleSnapPoints(FVector TestPoint);
+	TArray<USnapPointComponent*> GetPossibleSnapPoints(FVector TestPoint, AMoveableObject* TestObject);
+
+	// Get the closest snap point on the held object
+	USnapPointComponent* GetClosestHeldSnapPoint(TArray<USnapPointComponent*> PossibleSnapPoints, FVector TestPoint);
+
+	// Get the closest vector to the current test point
+	USnapPointComponent* GetClosestVector(FVector TestPoint, USnapPointComponent* PointA, USnapPointComponent* PointB);
+
+	// Get the distance betwen two vectors
+	float GetVectorDistance(FVector PointA, FVector PointB);
 
 	// Move objects being fused together via interpolation over time
 	void InterpFusedObjects(float DeltaTime);
@@ -182,10 +191,6 @@ private:
 	// Remove material of nearby fuseable object and its currently fused object set
 	UFUNCTION(BlueprintCallable)
 	void RemoveMoveableObjectMaterial(AMoveableObject* MoveableObject);
-
-	// Fuse current object group with the nearest fuseable object
-	UFUNCTION(BlueprintCallable)
-	virtual void FuseMoveableObjects(AMoveableObject* MoveableObject);
 
 	// A dynamic material to apply to the current object, allowing for manipulation of parameters
 	UPROPERTY()
