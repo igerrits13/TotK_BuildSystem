@@ -100,7 +100,7 @@ void AMoveableObject::Tick(float DeltaTime)
 				GetWorld(),
 				OtherClosestSnapPoint,
 				15.f,
-				FColor::Orange,
+				FColor::Magenta,
 				false,
 				0.f
 			);
@@ -395,7 +395,10 @@ void AMoveableObject::UpdateCollisionPoints()
 	FVector HeldFuseObjectCenter = ClosestFusedMoveableObject->MeshComponent->GetOwner()->GetActorLocation();
 	FVector HeldClosestFusionPoint, OtherClosestFusionPoint;
 	ClosestNearbyMoveableObject->MeshComponent->GetClosestPointOnCollision(HeldFuseObjectCenter, OtherClosestFusionPoint);
+	// We want collision points between the two object's closest points, so get the other object's closest point, then get the closest points between the two closest points
+	// Only getting the "OtherClosestFusionPoint" once leads to a trace from the held objects center, rather than closest point and leads to sometimes snapping to the wrong point on the closest object
 	ClosestFusedMoveableObject->MeshComponent->GetClosestPointOnCollision(OtherClosestFusionPoint, HeldClosestFusionPoint);
+	ClosestNearbyMoveableObject->MeshComponent->GetClosestPointOnCollision(HeldClosestFusionPoint, OtherClosestFusionPoint);
 
 	// From the closest collision point, get all possible snap points within a specified radius
 	TArray<USnapPointComponent*> HeldSnapPoints = GetPossibleSnapPoints(HeldClosestFusionPoint, ClosestFusedMoveableObject);
