@@ -57,6 +57,7 @@ ATotK_BuildSystemCharacter::ATotK_BuildSystemCharacter()
 	// are set in the derived blueprint asset named ThirdPersonCharacter (to avoid direct content references in C++)
 }
 
+// To add mapping context
 void ATotK_BuildSystemCharacter::BeginPlay()
 {
 	// Call the base class  
@@ -64,6 +65,27 @@ void ATotK_BuildSystemCharacter::BeginPlay()
 
 	// Initialize grabber component once blueprint components have been created
 	GrabberComponent = FindComponentByClass<UGrabber>();
+
+	// Initialize the camera height and depth variables
+	CameraBaseVec = CameraBoom->GetRelativeLocation();
+	CameraHoldingVec = FVector(CameraBaseVec.X + CameraDepthOffset, CameraBaseVec.Y + CameraWidthOffset, CameraBaseVec.Z + CameraHeightOffset);
+}
+
+// Called every frame
+void ATotK_BuildSystemCharacter::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	// If the camera should move for either grabbing or releasing, move to the correct spot
+	if (GrabberComponent) {
+		if (!GrabberComponent->IsHoldingObject() && CameraBoom->GetRelativeLocation() != CameraBaseVec) {
+			CameraBoom->SetRelativeLocation(FMath::VInterpTo(CameraBoom->GetRelativeLocation(), CameraBaseVec, DeltaTime, InterpSpeed));
+		}
+
+		else if (GrabberComponent->IsHoldingObject() && CameraBoom->GetRelativeLocation() != CameraHoldingVec) {
+			CameraBoom->SetRelativeLocation(FMath::VInterpTo(CameraBoom->GetRelativeLocation(), CameraHoldingVec, DeltaTime, InterpSpeed));
+		}
+	}
 }
 
 //////////////////////////////////////////////////////////////////////////

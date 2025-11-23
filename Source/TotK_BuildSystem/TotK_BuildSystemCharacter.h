@@ -84,6 +84,28 @@ public:
 	// Track if character is trying to grab object
 	bool bIsGrabbing = false;
 
+	// Base vector of the camera 
+	FVector CameraBaseVec;
+
+	// Adjusted vector of the camera
+	FVector CameraHoldingVec;
+
+	// Speed that the fused objects will move towards each other
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "CameraOnGrab")
+	float InterpSpeed = 6.f;
+
+	// How close to the player the camera should move when grabbing an object
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "CameraOnGrab")
+	float CameraDepthOffset = 100.f;
+
+	// How high the camera should raise when grabbing an object
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "CameraOnGrab")
+	float CameraWidthOffset = 50.f;
+
+	// How high the camera should raise when grabbing an object
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "CameraOnGrab")
+	float CameraHeightOffset = 125.f;
+
 protected:
 
 	/** Called for movement input */
@@ -121,7 +143,10 @@ protected:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
 	// To add mapping context
-	virtual void BeginPlay();
+	virtual void BeginPlay() override;
+
+	// Called every frame
+	virtual void Tick(float DeltaTime) override;
 
 private:
 	UGrabber* GrabberComponent;
