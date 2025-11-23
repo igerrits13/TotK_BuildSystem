@@ -97,11 +97,25 @@ protected:
 	// Closest point for fusing the held object to another nearby object
 	FVector HeldClosestSnapPoint;
 
+	// Closest snap point object for fusing the held object to another nearby object
+	UPROPERTY()
+	USnapPointComponent* HeldClosestSnapComp;
+
+	// Closest collision point if a snap point is not available for the held object
+	FVector HeldLocalCollisionPoint;
+
 	// Offset center of held object to closest fusion point
 	FVector HeldLocalOffset;
 
-	// Closest point for fusing the other nearby object to athe held object
+	// Closest point for fusing the other nearby object to the held object
 	FVector OtherClosestSnapPoint;
+
+	// Closest snap point object for fusing the nearby object to the held object
+	UPROPERTY()
+	USnapPointComponent* OtherClosestSnapComp;
+
+	// Closest collision point if a snap point is not available for the other object
+	FVector OtherLocalCollisionPoint;
 
 	// Offset center of held object to closest fusion point
 	FVector OtherLocalOffset;
@@ -135,7 +149,7 @@ private:
 	AMoveableObject* GetClosestMoveableofTwo(AMoveableObject* TestFused, AMoveableObject* TestMoveable, AMoveableObject* CurrentBestFused, AMoveableObject* CurrentBestMoveable);
 
 	// Update the closest collision points on the held object and the nearby fusion object
-	void UpdateCollisionPoints();
+	void UpdateSnapPoints();
 
 	// Get possible snap points
 	TArray<USnapPointComponent*> GetPossibleSnapPoints(FVector TestPoint, AMoveableObject* TestObject);

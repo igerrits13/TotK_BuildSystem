@@ -52,13 +52,14 @@ void AMoveableObject::Tick(float DeltaTime)
 		UpdateMoveableObjectMaterial(this, ClosestNearbyMoveableObject ? true : false);
 	}
 
-	// If a nearby moveable object exists, update the closest fusion points on the nearby moveable object and the currently held object
+	// If a nearby moveable object exists, and if two objects are currently fusing, interpolate the two objects towards each other. Otherwise, simply update their closest snap points
 	if (ClosestNearbyMoveableObject) {
-		UpdateCollisionPoints();
-
-		// If two objects are currently fusing, interpolate the location of the previously held object to move towards the object it is fusing with, joining the two objects at the associated closest points
 		if (bIsFusing) {
 			InterpFusedObjects(DeltaTime);
+		}
+
+		else {
+			UpdateSnapPoints();
 		}
 	}
 
@@ -389,14 +390,15 @@ AMoveableObject* AMoveableObject::CheckMoveableObjectTrace(AMoveableObject* Near
 }
 
 // Update the closest collision points on the held object and the nearby fusion object
-void AMoveableObject::UpdateCollisionPoints()
+void AMoveableObject::UpdateSnapPoints()
 {
 	// Get the closest collision points of both the held and nearby moveable object
-	FVector HeldFuseObjectCenter = ClosestFusedMoveableObject->MeshComponent->GetOwner()->GetActorLocation();
+	FVector HeldFuseObjectCenter = ClosestFusedMoveableObject->GetActorLocation();
 	FVector HeldClosestFusionPoint, OtherClosestFusionPoint;
-	ClosestNearbyMoveableObject->MeshComponent->GetClosestPointOnCollision(HeldFuseObjectCenter, OtherClosestFusionPoint);
+
 	// We want collision points between the two object's closest points, so get the other object's closest point, then get the closest points between the two closest points
 	// Only getting the "OtherClosestFusionPoint" once leads to a trace from the held objects center, rather than closest point and leads to sometimes snapping to the wrong point on the closest object
+	ClosestNearbyMoveableObject->MeshComponent->GetClosestPointOnCollision(HeldFuseObjectCenter, OtherClosestFusionPoint);
 	ClosestFusedMoveableObject->MeshComponent->GetClosestPointOnCollision(OtherClosestFusionPoint, HeldClosestFusionPoint);
 	ClosestNearbyMoveableObject->MeshComponent->GetClosestPointOnCollision(HeldClosestFusionPoint, OtherClosestFusionPoint);
 
@@ -405,23 +407,25 @@ void AMoveableObject::UpdateCollisionPoints()
 	TArray<USnapPointComponent*> NearbySnapPoints = GetPossibleSnapPoints(OtherClosestFusionPoint, ClosestNearbyMoveableObject);
 
 	// Get the closest snap point to the previously calculated collision point for the held object. If there is none, simply use the collision point itself
-	USnapPointComponent* HeldClosestPoint = GetClosestObjectSnapPoint(HeldSnapPoints, HeldClosestFusionPoint);
-	if (HeldClosestPoint) {
-		HeldClosestSnapPoint = HeldClosestPoint->GetComponentLocation();
+	HeldClosestSnapComp = GetClosestObjectSnapPoint(HeldSnapPoints, HeldClosestFusionPoint);
+	if (HeldClosestSnapComp) {
+		HeldClosestSnapPoint = HeldClosestSnapComp->GetComponentLocation();
 	}
 
 	else {
 		HeldClosestSnapPoint = HeldClosestFusionPoint;
+		HeldLocalCollisionPoint = ClosestFusedMoveableObject->GetActorTransform().InverseTransformPosition(HeldClosestSnapPoint);
 	}
 
 	// Get the closest snap point to the previously calculated collision point for the nearby object. If there is none, simply use the collision point itself
-	USnapPointComponent* NearbyClosestPoint = GetClosestObjectSnapPoint(NearbySnapPoints, OtherClosestFusionPoint);
-	if (NearbyClosestPoint) {
-		OtherClosestSnapPoint = NearbyClosestPoint->GetComponentLocation();
+	OtherClosestSnapComp = GetClosestObjectSnapPoint(NearbySnapPoints, OtherClosestFusionPoint);
+	if (OtherClosestSnapComp) {
+		OtherClosestSnapPoint = OtherClosestSnapComp->GetComponentLocation();
 	}
 
 	else {
 		OtherClosestSnapPoint = OtherClosestFusionPoint;
+		OtherLocalCollisionPoint = ClosestNearbyMoveableObject->GetActorTransform().InverseTransformPosition(OtherClosestSnapPoint);
 	}
 }
 
@@ -515,11 +519,30 @@ float AMoveableObject::GetVectorDistance(FVector PointA, FVector PointB)
 // Move objects being fused together via interpolation over time
 void AMoveableObject::InterpFusedObjects(float DeltaTime)
 {
-	// Get the object offset from the center of the held object to the closest point of the held object and adjust the target location based on the offset
-	FVector Offset = HeldClosestSnapPoint - ClosestFusedMoveableObject->MeshComponent->GetOwner()->GetActorLocation();
-	FVector TargetActorLocation = OtherClosestSnapPoint - Offset;
+	// If there is a held closest snap component, get its location
+	if (HeldClosestSnapComp) {
+		HeldClosestSnapPoint = HeldClosestSnapComp->GetComponentLocation();
+	}
 
-	ClosestFusedMoveableObject->MeshComponent->GetOwner()->SetActorLocation(FMath::VInterpTo(ClosestFusedMoveableObject->MeshComponent->GetOwner()->GetActorLocation(), TargetActorLocation, DeltaTime, InterpSpeed));
+	// Otherwise, use the location of the held closest snap point
+	else {
+		HeldClosestSnapPoint = ClosestFusedMoveableObject->GetActorTransform().TransformPosition(HeldLocalCollisionPoint);
+	}
+
+	// If there is a other closest snap component, get its location
+	if (OtherClosestSnapComp) {
+		OtherClosestSnapPoint = OtherClosestSnapComp->GetComponentLocation();
+	}
+
+	// Otherwise, use the location of the other closest snap point
+	else {
+		OtherClosestSnapPoint = ClosestNearbyMoveableObject->GetActorTransform().TransformPosition(OtherLocalCollisionPoint);
+	}
+
+	// Get the object offset from the center of the held object to the closest point of the held object and adjust the target location based on the offset
+	FVector Offset = HeldClosestSnapPoint - ClosestFusedMoveableObject->GetActorLocation();
+	FVector TargetActorLocation = OtherClosestSnapPoint - Offset;
+	ClosestFusedMoveableObject->SetActorLocation(FMath::VInterpTo(ClosestFusedMoveableObject->GetActorLocation(), TargetActorLocation, DeltaTime, InterpSpeed));
 
 	// Check the distance between closest points, once they are within the given tolerance, fusion has been completed and the closest nearby object no longer needs to be tracked
 	float Distance = FVector::Dist(HeldClosestSnapPoint, OtherClosestSnapPoint);
@@ -682,7 +705,7 @@ UPhysicsConstraintComponent* AMoveableObject::AddPhysicsConstraint(AMoveableObje
 	UPhysicsConstraintComponent* PhysicsConstraint = NewObject<UPhysicsConstraintComponent>(ClosestFusedMoveableObject->MeshComponent->GetOwner());
 	PhysicsConstraint->RegisterComponent();
 	PhysicsConstraint->AttachToComponent(ClosestFusedMoveableObject->RootComponent, FAttachmentTransformRules::KeepWorldTransform);
-	PhysicsConstraint->SetWorldLocation(ClosestFusedMoveableObject->MeshComponent->GetOwner()->GetActorLocation());
+	PhysicsConstraint->SetWorldLocation(ClosestFusedMoveableObject->GetActorLocation());
 	PhysicsConstraint->SetConstrainedComponents(ClosestFusedMoveableObject->MeshComponent, NAME_None, MoveableObject->MeshComponent, NAME_None);
 
 	// Configure allowed motion and rotation
